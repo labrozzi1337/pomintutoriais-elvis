@@ -1,0 +1,30 @@
+{
+  "name": "@start-back/backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0 --port 3000",
+    "worker": "node --env-file-if-exists=../../.env --import tsx src/worker.ts",
+    "wiki:retitular": "node --env-file-if-exists=../../.env --import tsx src/scripts/retitular-wiki.ts",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0 --port 3000",
+    "typecheck": "tsc --noEmit --pretty false",
+    "db:types": "supabase gen types typescript --linked --schema tutoriais > src/integrations/supabase/database.types.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
+    "bullmq": "^6.3.12",
+    "ioredis": "^6.0.0",
+    "next": "^16.3.8",
+    "openai": "^7.31.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tsx": "^4.23.15",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "supabase": "^2.119.0"
+  }
+}

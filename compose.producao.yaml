@@ -1,0 +1,24 @@
+# Usar junto de compose.yaml. Não executar sem configurar domínio e fechar o aceite.
+services:
+  frontend:
+    ports: !reset []
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      START_BACK_DOMAIN: ${START_BACK_DOMAIN:?configure o domínio público}
+      START_BACK_TLS_EMAIL: ${START_BACK_TLS_EMAIL:?configure o contato do certificado}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  caddy-data:
+  caddy-config:

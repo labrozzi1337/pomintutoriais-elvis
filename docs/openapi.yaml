@@ -1,0 +1,464 @@
+openapi: 3.1.0
+info:
+  title: Start Back API
+  version: 1.4.0
+  description: Contrato HTTP versionado do backend.
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Verifica a API e a conexão com o schema dedicado.
+      responses:
+        "200":
+          description: Serviços disponíveis.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: Banco ou Redis não configurado/indisponível.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /projetos:
+    get:
+      operationId: listarProjetos
+      summary: Lista projetos autorizados pelo RLS.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Projetos e estados atuais. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: criarProjeto
+      summary: Cria um projeto pessoal.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [titulo, empresa, setor]
+              properties:
+                titulo: { type: string, minLength: 1, maxLength: 160 }
+                empresa: { type: string, minLength: 1, maxLength: 120 }
+                setor: { type: string, minLength: 1, maxLength: 120 }
+      responses:
+        "201": { description: Projeto criado. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /projetos/{projetoId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjetoId"
+    get:
+      operationId: consultarProjeto
+      summary: Consulta projeto e processamentos autorizados.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Projeto encontrado. }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: excluirProjeto
+      summary: Exclui projeto do proprietário e seus arquivos.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Projeto excluído. }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /projetos/{projetoId}/uploads:
+    parameters:
+      - $ref: "#/components/parameters/ProjetoId"
+    post:
+      operationId: iniciarUpload
+      summary: Inicia upload MP4 em partes.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nomeArquivo, mimeType, tamanhoBytes]
+              properties:
+                nomeArquivo: { type: string }
+                mimeType: { type: string, const: video/mp4 }
+                tamanhoBytes: { type: integer, minimum: 1 }
+      responses:
+        "201": { description: Sessão criada com tamanho de parte. }
+        "413": { description: Arquivo maior que o limite. }
+        "415": { description: Tipo não aceito. }
+  /projetos/{projetoId}/uploads/{uploadId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjetoId"
+      - $ref: "#/components/parameters/UploadId"
+    put:
+      operationId: enviarParteUpload
+      summary: Envia a próxima parte binária do MP4.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "200": { description: Quantidade de bytes recebidos. }
+        "409": { description: Upload concorrente ou concluído. }
+  /projetos/{projetoId}/uploads/{uploadId}/conclusao:
+    parameters:
+      - $ref: "#/components/parameters/ProjetoId"
+      - $ref: "#/components/parameters/UploadId"
+    post:
+      operationId: concluirUpload
+      summary: Promove o arquivo e agenda validação no worker.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "202": { description: Processamento persistido e enfileirado. }
+        "409": { description: Upload incompleto. }
+        "415": { description: Conteúdo não é MP4. }
+  /processamentos/{processamentoId}:
+    parameters:
+      - name: processamentoId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: consultarProcessamento
+      summary: Consulta progresso persistido.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Estado atual. }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: cancelarProcessamento
+      summary: Solicita cancelamento idempotente.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Cancelamento solicitado. }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /videos/{videoId}/acessos:
+    parameters:
+      - $ref: "#/components/parameters/VideoId"
+    post:
+      operationId: criarAcessoVideo
+      summary: Emite URL temporária para reprodução ou download.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [modo]
+              properties:
+                modo: { type: string, enum: [reproduzir, baixar] }
+      responses:
+        "201": { description: URL assinada por cinco minutos. }
+        "409": { description: Vídeo ainda não validado. }
+  /videos/{videoId}/conteudo:
+    parameters:
+      - $ref: "#/components/parameters/VideoId"
+    get:
+      operationId: transmitirVideo
+      summary: Transmite bytes com Range e cookie HttpOnly escopado.
+      responses:
+        "200": { description: Arquivo completo. }
+        "206": { description: Intervalo solicitado. }
+        "401": { description: Token inválido ou expirado. }
+        "416": { description: Intervalo inválido. }
+  /configuracoes:
+    get:
+      operationId: consultarConfiguracoes
+      summary: Lista vozes ativas e limites sem chaves privadas.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Vozes, limites, modelo e retenção. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /videos/{videoId}/analises:
+    parameters:
+      - $ref: "#/components/parameters/VideoId"
+    post:
+      operationId: solicitarAnalise
+      summary: Agenda análise visual; confirmação de custo é obrigatória.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirmarCustos]
+              properties:
+                confirmarCustos: { type: boolean, const: true }
+                confirmarSubstituicao: { type: boolean, default: false }
+                modelo: { type: string, enum: [gpt-6.1-sol, gpt-6-astra] }
+                tom: { type: string, enum: [natural, conversado], default: conversado }
+                narrarAoConcluir: { type: boolean, default: false, description: Encadeia voz, ajuste de ritmo, render e legendas após o roteiro. }
+      responses:
+        "202": { description: Job persistido e enfileirado. }
+        "409": { description: Job ativo ou substituição de edição humana sem confirmação. }
+        "503": { description: Provedor não configurado. }
+  /projetos/{projetoId}/roteiro:
+    parameters:
+      - $ref: "#/components/parameters/ProjetoId"
+    get:
+      operationId: consultarRoteiro
+      summary: Roteiro atual, blocos com medidas de voz, artefatos e snapshots.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Roteiro autorizado. }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /roteiros/{roteiroId}/blocos:
+    parameters:
+      - $ref: "#/components/parameters/RoteiroId"
+    put:
+      operationId: salvarTimeline
+      summary: Salva timeline completa com tempos inteiros em ms e snapshot anterior.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [blocos]
+              properties:
+                atualizadoEm: { type: string, description: Versão otimista obtida no roteiro. }
+                blocos:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  items:
+                    type: object
+                    required: [inicioMs, fimMs, acaoVisual, narracao, evidenciasFrame, confianca]
+                    properties:
+                      id: { type: string, format: uuid, description: Omitir para novo bloco. }
+                      inicioMs: { type: integer, minimum: 0 }
+                      fimMs: { type: integer, minimum: 1 }
+                      acaoVisual: { type: string, maxLength: 2000 }
+                      narracao: { type: string, maxLength: 4000 }
+                      evidenciasFrame: { type: array, items: { type: integer, minimum: 0 } }
+                      confianca: { type: number, minimum: 0, maximum: 1 }
+      responses:
+        "200": { description: Roteiro atualizado. }
+        "400": { description: Tempos/blocos inválidos. }
+        "409": { description: Versão antiga, escrita concorrente ou processamento ativo. }
+  /roteiros/{roteiroId}/narracoes:
+    parameters:
+      - $ref: "#/components/parameters/RoteiroId"
+    post:
+      operationId: solicitarNarracao
+      summary: Agenda voz e render; reutiliza cache salvo quando compatível.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirmarCustos]
+              properties:
+                confirmarCustos: { type: boolean, const: true }
+                vozId: { type: string, format: uuid }
+                blocoId: { type: string, format: uuid, description: Força regeneração apenas desse bloco. }
+                regenerarTudo: { type: boolean, default: false }
+                modoAudio: { type: string, enum: [substituir, ducking, manter_original], default: substituir }
+                ajustarTextoAutomaticamente: { type: boolean, default: false }
+                gerarLegendas: { type: boolean, default: true }
+      responses:
+        "202": { description: Job de voz/render criado. }
+        "409": { description: Vídeo não pronto ou narração ativa. }
+        "503": { description: Fish/voz não configurado. }
+  /arquivos/{arquivoId}/acessos:
+    parameters:
+      - $ref: "#/components/parameters/ArquivoId"
+    post:
+      operationId: criarAcessoArtefato
+      summary: URL de artefato e cookie HttpOnly escopado por cinco minutos.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                modo: { type: string, enum: [reproduzir, baixar], default: baixar }
+      responses:
+        "201": { description: URL relativa e expiração; Set-Cookie precisa ser preservado. }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /arquivos/{arquivoId}/conteudo:
+    parameters:
+      - $ref: "#/components/parameters/ArquivoId"
+    get:
+      operationId: transmitirArtefato
+      summary: MP3, WAV, MP4, SRT ou VTT com cookie escopado; aceita Range.
+      responses:
+        "200": { description: Arquivo completo. }
+        "206": { description: Intervalo de bytes. }
+        "401": { description: Cookie ausente, adulterado ou expirado. }
+        "416": { description: Range inválido. }
+  /launcher/pareamentos:
+    post:
+      operationId: criarPareamentoWindows
+      summary: Código descartável de cinco minutos; não compartilhar.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "201": { description: Código e expiração. }
+        "503": { description: Migration do Launcher ainda não aplicada. }
+  /launcher/dispositivos:
+    get:
+      operationId: listarDispositivosWindows
+      summary: Lista somente dispositivos da sessão; sem token.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Dispositivos próprios. }
+    post:
+      operationId: resgatarPareamentoWindows
+      summary: Launcher resgata capability descartável; não aceita proprietário fornecido.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [codigo, tokenDispositivo]
+              properties:
+                codigo: { type: string, pattern: "^[a-f0-9]{64}$" }
+                tokenDispositivo: { type: string, pattern: "^[a-f0-9]{64}$" }
+      responses:
+        "201": { description: Dispositivo pareado; código consumido. }
+        "401": { description: Capability inválida, expirada ou reutilizada. }
+  /launcher/dispositivos/{id}:
+    parameters:
+      - $ref: "#/components/parameters/LauncherId"
+    delete:
+      operationId: revogarDispositivoWindows
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Dispositivo próprio revogado. }
+  /launcher/desafios:
+    post:
+      operationId: emitirDesafioWindows
+      summary: Desafio UUID de um minuto vinculado à sessão/dispositivo; URL sem segredo.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dispositivoId: { type: string, format: uuid }
+      responses:
+        "201": { description: Desafio e protocolo próprio. }
+        "503": { description: Nenhum dispositivo ativo pareado ou migration ausente. }
+  /launcher/desafios/{id}:
+    parameters:
+      - $ref: "#/components/parameters/LauncherId"
+    get:
+      operationId: consultarDesafioWindows
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Estado real; nao_respondeu após expirar. }
+        "404": { description: Outra sessão/usuário ou desafio inexistente. }
+  /launcher/confirmacoes:
+    get:
+      operationId: validarDesafioWindows
+      summary: Preflight do Launcher com Bearer de dispositivo, não JWT de usuário.
+      security: [{ deviceToken: [] }]
+      parameters:
+        - name: desafio
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Dispositivo ativo e desafio vigente. }
+        "401": { description: Credencial/desafio inválido, expirado, consumido ou de outro dispositivo. }
+    post:
+      operationId: confirmarAberturaWindows
+      security: [{ deviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [desafioId, status]
+              properties:
+                desafioId: { type: string, format: uuid }
+                status: { type: string, enum: [aberto, recordly_nao_encontrado, cancelado, erro] }
+      responses:
+        "204": { description: Confirmação consumida atomicamente. }
+        "401": { description: Credencial/desafio inválido, expirado ou consumido. }
+        "409": { description: Replay/expiração/dispositivo diferente. }
+components:
+  securitySchemes:
+    deviceToken:
+      type: http
+      scheme: bearer
+      description: Token local do Launcher de 32 bytes; servidor armazena somente hash.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ArquivoId:
+      name: arquivoId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RoteiroId:
+      name: roteiroId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    LauncherId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ProjetoId:
+      name: projetoId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    UploadId:
+      name: uploadId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    VideoId:
+      name: videoId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Entrada inválida.
+    Unauthorized:
+      description: Bearer ausente ou inválido.
+    NotFound:
+      description: Recurso ausente ou não autorizado.
+  schemas:
+    HealthResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [service, status, database, redis, schema, timestamp]
+          properties:
+            service: { type: string, const: start-back-api }
+            status: { type: string, enum: [ok, degraded] }
+            database: { type: string, enum: [connected, unconfigured, unavailable] }
+            redis: { type: string, enum: [connected, unavailable] }
+            schema: { type: string, const: tutoriais }
+            timestamp: { type: string, format: date-time }
+        meta:
+          type: object
+          required: [requestId]
+          properties:
+            requestId: { type: string }
+

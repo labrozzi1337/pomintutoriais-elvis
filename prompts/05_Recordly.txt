@@ -1,0 +1,13 @@
+## PROMPT 5 — INTEGRAÇÃO REAL COM RECORDLY (SEM PROMETER O IMPOSSÍVEL)
+
+Faça uma auditoria de integração com o código **público** de https://github.com/webadderallorg/Recordly , focando na versão estável dos releases e em `EXTENSIONS.md`, tipos reais e eventos de exportação. NÃO altere nem incorpore seu código à aplicação proprietária antes de verificar licença AGPLv3 e obrigações de marca/atribuição; documente decisão em `docs/integracao-recordly.md`.
+
+### Obrigatório examinar
+- Recordly roda Electron no cliente e exporta MP4 com edição aplicada. Docker hospeda nosso servidor e processador, mas NÃO captura a tela de usuários remotos nem os efeitos nativos por si só.
+- A documentação de extensões declara evento `export:complete`, mas isso **não comprova** que o payload entregue ao plugin inclua caminho do arquivo ou que o plugin tenha autorização para ler bytes/upload. Verifique no código real o tipo do evento, caminhos de arquivos, contexto de execução, permissões e possibilidades de rede. Não invente bridge, callbacks, IPC ou API de upload que não existam.
+- Avalie opções na ordem: (A) MVP sólido de exportar MP4 e arrastar ao portal; (B) extensão independente com botão pós-exportação **se** o evento e permissões realmente suportarem acesso autorizado ao arquivo; (C) pequeno companion desktop dedicado com autorização do usuário para selecionar/enviar o MP4, sem mexer no Recordly; (D) fork do Recordly somente após avaliação explícita de licenciamento e escopo open-source.
+- Se técnica e juridicamente viável, implemente a melhor opção incremental sem forçar usuário a configurar credenciais de Fish/OpenAI localmente: fluxo de pareamento com token curto e escopo restrito, upload autenticado, confirmação explícita, indicador de progresso, revogação de dispositivo, prevenção de envio de captura sem consentimento e idempotência. Nunca colocar chave global do backend no aplicativo cliente.
+- Se não for viável sem fork, mantenha a importação manual e implemente a gravação simples via navegador separadamente; documente honestamente a limitação e não entregue botões que simulam abrir/capturar com Recordly.
+
+### Entregáveis
+Matriz técnica de viabilidade com evidência por arquivo/função do repositório, decisão de licenciamento (e recomendação de revisão jurídica), prova de conceito funcional apenas quando viável, testes de export/upload, instruções de instalação para Windows e atualização do README. Se houver separação entre um módulo AGPL e a plataforma proprietária, manter fronteiras de código e serviços reais, sem alegar que isso automaticamente resolve obrigações legais.

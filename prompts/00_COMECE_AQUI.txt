@@ -1,0 +1,37 @@
+ESTÚDIO DE TUTORIAIS COM IA — COMECE AQUI (WINDOWS)
+
+VOCÊ JÁ TEM: projeto starter Vite + Next.js; Node.js instalado; FFmpeg instalado; Recordly instalado; o kit Fish que funcionou.
+VOCÊ AINDA NÃO PRECISA: hospedagem, domínio, fork do Recordly, instalador próprio.
+
+PASSO 1: Abra no VS Code a pasta RAIZ do seu starter Vite + Next. Não abra a pasta do Recordly nem a pasta fish como projeto principal.
+PASSO 2: Abra TERMINAL > Novo Terminal e execute:
+  node -v
+  npm -v
+  git --version
+  docker --version
+  docker compose version
+Se Docker não estiver instalado, instale Docker Desktop e ative o motor antes de prosseguir. O Node e o FFmpeg já estão funcionando na sua máquina.
+PASSO 3: Certifique-se de que o projeto starter roda como já rodava, e de que possui repositório Git/backup. Não apague arquivos existentes.
+PASSO 4: No VS Code, abra o agente de IA (Sol High) no modo que pode ler/editar arquivos do projeto. Cole TODO o arquivo 01_Base_Docker.txt. Peça implementação e teste; não avance sem upload MP4 de verdade funcionando.
+PASSO 5: Use 02_GPT_Roteiro.txt, teste com um MP4 de verdade do Recordly; depois 03_Fish_FFmpeg.txt, disponibilizando o arquivo C:\Users\Suporte\Downloads\fish\gerar-narracao.mjs para o agente ler (sem copiar suas chaves ou áudios para Git).
+PASSO 6: Use 04_Interface.txt para entregar a interface completa e testar botões com APIs reais.
+PASSO 7: Use 05_Recordly.txt para auditar a integração; use 05A_Launcher_Windows.txt para o botão 'Gravar tela' abrir Recordly no PC, com fallback de instalação.
+PASSO 8: Use 06_Producao.txt para segurança, testes E2E e deploy Docker online.
+
+CHAVES DE API (SOMENTE QUANDO FOR A HORA DE TESTAR)
+  OpenAI: https://platform.openai.com/api-keys
+  Fish: https://fish.audio/app/api-keys
+Coloque chaves somente nas variáveis de ambiente do SERVIDOR/WORKER conforme .env.example gerado pelo agente; nunca no Vite, no GitHub, no chat ou na URL. O plano do ChatGPT não paga chamadas da API OpenAI automaticamente. Antes do uso comercial, confira os termos e a capacidade do plano Fish.
+
+COMO SABER SE PODE AVANÇAR?
+  01: abre portal, faz login, envia MP4, reproduz MP4, worker/Redis ativos.
+  02: clica 'Gerar roteiro' e aparecem cenas com início e fim coerentes.
+  03: escolhe voz, narra, identifica trechos longos, exporta e baixa MP4 com áudio.
+  04: a interface funciona com dados reais, sem botões de fachada.
+  05 + 05A: Windows abre Recordly com Launcher; se ausente, oferece o download correto.
+  06: ambiente Docker seguro pronto para publicar via HTTPS.
+
+REGRA IMPORTANTE: NÃO COLE TODOS OS PROMPTS JUNTOS. UM POR ETAPA, COM TESTE REAL ANTES DA PRÓXIMA.
+
+SE UM AGENTE RESPONDER APENAS COM PLANO, MANDE:
+  'Não quero apenas planejamento. Implemente esta etapa no repositório aberto, rode testes reais e mostre arquivos alterados, comandos, endpoints e o que ainda está pendente. Não altere a stack e não simule integrações de produção.'

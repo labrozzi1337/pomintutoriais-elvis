@@ -1,0 +1,31 @@
+## PROMPT 1 — AUDITORIA, ARQUITETURA, BASE FUNCIONAL E DOCKER
+
+Você é arquiteto principal de software e engenheiro full-stack sênior, responsável por implementar — não apenas explicar — o Estúdio de Tutoriais IA no repositório ATUALMENTE ABERTO no VS Code. Usaremos esta sequência de prompts para construir um produto de produção, não uma demonstração fictícia.
+
+### Objetivo completo do produto
+Usuário entra em um portal web, importa um MP4 já editado no Recordly (ou grava uma captura simples diretamente no navegador), assiste à prévia, clica em **Gerar roteiro com IA**, revisa e edita blocos com timestamps, escolhe uma voz da Fish, clica em **Gerar narração**, acompanha o andamento, vê o MP4 com narração sincronizada e o baixa. Pode regenerar um bloco isoladamente e renderizar novamente sem gastar créditos com trechos inalterados.
+
+### Regras inegociáveis
+1. Inspecione PRIMEIRO o repositório, seus `package.json`, apps, rotas, padrões de autenticação, Supabase/PostgreSQL, design system, variáveis existentes e convenções. **Mantenha Vite + React + TypeScript no frontend e Next.js no backend** como já estão. Não inicialize projeto novo, não migre stack, não quebre funções já implementadas.
+2. Toda nomenclatura de domínio, variáveis de negócio, classes, telas e comentários em **português brasileiro**, mantendo os nomes técnicos obrigatórios das bibliotecas e contratos de APIs de terceiros. Todas as funções novas precisam ter comentário conciso descrevendo finalidade, entradas e efeitos importantes. Código fácil de manter, modular, sem dependência cruzada indevida.
+3. **Nenhuma função de negócio, trigger ou RPC no banco de dados.** PostgreSQL/Supabase contém somente tabelas, índices, restrições, políticas de segurança e consultas. Regras de negócio ficam no backend/worker.
+4. Login obrigatório e autorização por proprietário/equipe em todas as operações. Aproveite o mecanismo existente; se ausente, adote Supabase Auth somente se coerente com a infraestrutura já configurada. Nunca permita um usuário baixar vídeo de outro por trocar ID na URL.
+5. Não exponha `OPENAI_API_KEY`, `FISH_API_KEY` ou `FISH_VOICE_ID` no frontend ou em URLs; não imprima tokens em logs. Crie `.env.example` sem segredos e documentação clara.
+6. Não associe código AGPL do Recordly ao backend proprietário sem análise de licença. O **MVP recebe MP4 exportado pelo Recordly**; integração desktop nativa é fase posterior, com viabilidade verificada. Não diga que Docker executará Recordly interativamente no navegador.
+7. Para upload: verifique MIME real por `ffprobe`, tamanho e duração; nomes seguros; arquivos isolados por ID; limites configuráveis (padrões de 500 MB e 15 min). Upload em streaming/partes com progresso; não carregar MP4 inteiro em memória do servidor.
+8. Jobs demorados executados fora da requisição HTTP, em worker separado e fila persistente (por exemplo BullMQ/Redis, se não houver infraestrutura equivalente preexistente). Estados explícitos: `recebido`, `processando_video`, `analisando`, `roteiro_pronto`, `gerando_voz`, `renderizando`, `concluido`, `erro`, `cancelado`.
+9. Persistência dos metadados via banco que já existe. MVP pode usar sistema de arquivos em volumes persistentes compartilhados entre API e worker, com interface `ArmazenamentoArquivos` preparada para S3/MinIO; guardar **caminho/chave** no banco, não binários. Não presumir Supabase Storage.
+10. Validação TypeScript estrita, Zod, tratamento de erros, idempotência, retry com limites, logs correlacionados a `projetoId` e `processamentoId`, proteção contra uploads e prompts maliciosos, exclusão e política de retenção.
+
+### Entregas desta fase — IMPLEMENTAR
+- Documente arquitetura atual e decisão de implantação em `docs/arquitetura-estudio-tutoriais.md`, sem fabricar integrações.
+- Crie estruturas/adapters de `Projetos`, `Videos`, `Roteiros`, `Blocos`, `Narracoes`, `Processamentos`, `Vozes` e `Arquivos`, sem funções no banco.
+- Crie migrations reversíveis quando possível, com SQL `up`/`down` documentado, **sem apagar dados existentes**.
+- Implemente upload autenticado de MP4 com progresso, validação `ffprobe`, persistência de metadados, listagem, detalhe, reprodução protegida e download original.
+- Implemente endpoints/serviços de criar/listar/consultar/excluir projeto e consultar status do processamento; os endpoints devem seguir as convenções que o projeto já utiliza.
+- Adicione worker e fila reais com Redis, interface para os próximos estágios e cancelamento seguro; API nunca bloqueia esperando FFmpeg/OpenAI/Fish.
+- Crie `Dockerfile`(s), `compose.yaml` para os serviços **frontend, API, worker, Redis**, e armazenamento com volume persistente. Use serviço existente de PostgreSQL/Supabase se presente, sem duplicar banco; configuração por variáveis. Instale FFmpeg e ffprobe no worker. Forneça healthchecks e inicialização reproduzível em Windows/Docker Desktop.
+- Adicione testes de isolamento de projetos, upload incorreto e comportamento básico da fila. Não crie mocks que simulem sucesso como se fosse resposta real em produção; mocks ficam confinados aos testes e modo explícito de desenvolvimento.
+
+### Critério de conclusão
+Executar os comandos reais de instalação/build/test; subir localmente; fazer login, enviar um MP4 real, vê-lo listado, reproduzi-lo e recuperar estado via API. Apresentar arquivos criados/alterados, comandos utilizados, testes que passaram e pendências verificáveis. Não apenas escrever um plano. Faça alterações incrementais sem modificar outros módulos do repositório.

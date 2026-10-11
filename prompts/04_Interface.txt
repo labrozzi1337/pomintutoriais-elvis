@@ -1,0 +1,15 @@
+## PROMPT 4 — FRONTEND PROFISSIONAL, EDIÇÃO VISUAL E GRAVAÇÃO WEB SIMPLES
+
+Continue no frontend Vite + React + TypeScript existente. Crie UI/UX com aparência de software SaaS 2026: clara, moderna, legível, discreta, profissional, responsiva, contrastes apropriados, navegação intuitiva, sem elementos encavalados. Preserve design system e convenções da aplicação e implemente componentes reais conectados às APIs (sem botões de fachada).
+
+### Jornadas
+- **Biblioteca de tutoriais**: grade/lista com thumbnail, título, duração, proprietário, status, modelo de análise, voz usada, data e ações. Busca, filtros, duplicação, exclusão autorizada.
+- **Novo tutorial**: três alternativas claras: (1) **Importar MP4 editado no Recordly**, opção principal do MVP; (2) **Gravar tela no navegador**, usando `navigator.mediaDevices.getDisplayMedia` + `MediaRecorder`, com consentimento, parada segura, prévia e upload, avisando que NÃO possui os zooms/efeitos de edição do Recordly; (3) **Como usar o Recordly desktop** com instruções curtas e acesso ao download oficial. Nenhum iframe fingindo incorporar o aplicativo desktop.
+- **Tela de projeto / editor**: player sincronizado no topo/esquerda, timeline navegável de cenas com blocos e miniaturas, painel de texto editável, tempos início/fim, duração orçada, confiança visual, botões reproduzir aquele trecho, editar, dividir/unir, regenerar, desfazer conforme versões. Ao selecionar bloco, player busca o `inicioMs` real. Indicador visual da duração estimada vs duração real após voz.
+- **Gerar roteiro**: botão só habilitado após upload válido, modal breve para escolher modelo (Sol high por padrão, Astra premium opcional), tom (natural/conversado) e idioma pt-BR; confirmação de custo estimado sem fabricar precisão. Progresso com estados de análise verdadeiros; conclusão abre editor revisável.
+- **Narrar vídeo**: seletor de voz Fish com prévia real e seleção persistida, botão Gerar; progresso por cena 01/16 etc, relatório de estouro de duração com regeneração isolada, configurador de áudio original. Mostrar download apenas depois da validação completa no servidor.
+- **Resultado**: player final, ações Baixar MP4, Baixar WAV, Baixar legendas SRT/VTT, refazer vídeo com alterações, revisar roteiro, histórico de renders. Progresso visível com polling inteligente ou SSE, estado recuperado após refresh, erros acionáveis.
+- **Configurações**: vozes disponíveis, limites de duração/tamanho, retenção; credenciais somente servidor/admin; não expor segredos aos usuários. Se a API Fish não possuir listagem adequada no escopo, permita cadastramento seguro de IDs de vozes por administrador.
+
+### Qualidade
+Acessibilidade básica, estados vazios e loading, feedback para upload grande e cancelamento, arquivos não autorizados, falha da API, internet interrompida, perda de SSE, reabrir projeto e continuar. Visualizar timeline de durações reais (sem prometer encaixe antes da renderização). Testes E2E Playwright para importar vídeo, editar roteiro, gerar narração mockada, validar download. Sem backend fake em produção. Rode lint/build/test e corrija erros.

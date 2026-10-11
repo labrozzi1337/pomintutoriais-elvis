@@ -1,0 +1,91 @@
+services:
+  redis:
+    image: redis:8.2-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: api
+    environment: &backend-environment
+      START_BACK_SUPABASE_URL: ${START_BACK_SUPABASE_URL:?configure START_BACK_SUPABASE_URL}
+      START_BACK_SUPABASE_ANON_KEY: ${START_BACK_SUPABASE_ANON_KEY:?configure START_BACK_SUPABASE_ANON_KEY}
+      START_BACK_SUPABASE_SERVICE_ROLE_KEY: ${START_BACK_SUPABASE_SERVICE_ROLE_KEY:?configure START_BACK_SUPABASE_SERVICE_ROLE_KEY}
+      START_BACK_ALLOWED_ORIGINS: ${START_BACK_ALLOWED_ORIGINS:-http://localhost:8081}
+      START_BACK_REDIS_URL: redis://redis:6379
+      START_BACK_STORAGE_ROOT: /data/estudio
+      START_BACK_DOWNLOAD_SECRET: ${START_BACK_DOWNLOAD_SECRET:?configure START_BACK_DOWNLOAD_SECRET}
+      START_BACK_MAX_VIDEO_BYTES: ${START_BACK_MAX_VIDEO_BYTES:-524288000}
+      START_BACK_MAX_VIDEO_DURATION_MS: ${START_BACK_MAX_VIDEO_DURATION_MS:-900000}
+      START_BACK_UPLOAD_CHUNK_BYTES: ${START_BACK_UPLOAD_CHUNK_BYTES:-5242880}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      START_BACK_OPENAI_MODEL: ${START_BACK_OPENAI_MODEL:-gpt-6.1-sol}
+      START_BACK_MAX_ANALYSIS_FRAMES: ${START_BACK_MAX_ANALYSIS_FRAMES:-120}
+      FISH_API_KEY: ${FISH_API_KEY:-}
+      FISH_VOICE_ID_PRIMARY: ${FISH_VOICE_ID_PRIMARY:-}
+      FISH_VOICE_ID: ${FISH_VOICE_ID:-}
+      START_BACK_FISH_MODEL: ${START_BACK_FISH_MODEL:-s2.1-pro-free}
+      START_BACK_FISH_CONCURRENCY: ${START_BACK_FISH_CONCURRENCY:-2}
+    volumes:
+      - estudio-arquivos:/data/estudio
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: worker
+    environment: *backend-environment
+    volumes:
+      - estudio-arquivos:/data/estudio
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?configure VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?configure VITE_SUPABASE_ANON_KEY}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${START_BACK_APP_PORT:-8081}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  estudio-arquivos:
+  redis-data:
