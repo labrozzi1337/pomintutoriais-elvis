@@ -40,7 +40,7 @@ Em caso de deadlock/lock timeout no SQL Editor, a transação afetada é abortad
 
 A biblioteca agrupa os tutoriais em **Empresa → Setor**, captura uma capa real do MP4 antes do clique e pesquisa por título, empresa, setor ou nome do arquivo com sugestões visuais.
 
-O **Recordly é pré-requisito** para gravar a tela. **Abrir Recordly** chama diretamente o aplicativo já instalado; o download oficial só aparece quando a tentativa de abertura falha. Não há gravador alternativo no navegador, launcher intermediário, código ou pareamento. [Instruções e limitações](docs/integracao-recordly.md). A exportação do MP4 no Recordly e sua importação no portal continuam manuais.
+O **Recordly é pré-requisito** para gravar a tela. **Abrir Recordly** solicita ao navegador a abertura do aplicativo associado; se não houver resposta, o portal oferece o download oficial adequado ao sistema. Não há launcher, ZIP, PowerShell ou pareamento. [Instruções e limitações](docs/integracao-recordly.md). A exportação do MP4 no Recordly e sua importação no portal continuam manuais.
 
 ## Atualizar, verificar e diagnosticar
 

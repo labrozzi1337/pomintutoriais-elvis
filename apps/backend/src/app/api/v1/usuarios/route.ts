@@ -22,8 +22,8 @@ export async function GET(request: Request): Promise<Response> {
     const contexto = await obterContextoApi(request);
     if (!contexto.ok) return contexto.response;
     const administrador = contexto.auth.acesso.tipo === "admin";
-    const usuarios = administrador ? await listarUsuarios(createServerSupabaseClient(contexto.env)) : [];
-    return NextResponse.json({ data: { administrador, usuarioAtualId: contexto.auth.acesso.id, usuarios }, meta: { requestId } });
+    const todos = administrador ? await listarUsuarios(createServerSupabaseClient(contexto.env)) : [];
+    return NextResponse.json({ data: { administrador, usuarioAtualId: contexto.auth.acesso.id, usuarios: todos.filter((usuario) => usuario.status === "ativo"), bloqueados: todos.filter((usuario) => usuario.status === "bloqueado") }, meta: { requestId } });
   } catch (error) { return tratarExcecao(error, requestId); }
 }
 

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Lock, Mail, ShieldAlert } from "lucide-react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/contexts/auth";
@@ -43,7 +43,8 @@ export function LoginPage() {
 
   const mensagemErro = erro ?? acessoNegado ?? (configurationError ? "Configure as variáveis públicas do Supabase." : null);
 
-  return <div className="flex min-h-screen w-full items-center justify-center bg-[radial-gradient(circle_at_85%_10%,hsl(var(--primary)/0.14),transparent_32%)] p-3 text-foreground sm:p-6">
+  return <div className="relative flex min-h-screen w-full items-center justify-center bg-[radial-gradient(circle_at_85%_10%,hsl(var(--primary)/0.14),transparent_32%)] p-3 text-foreground sm:p-6">
+    <Button variant="ghost" className="absolute left-3 top-3 sm:left-6 sm:top-6" onClick={() => { void navigate(-1); }}><ArrowLeft className="h-4 w-4" />Voltar</Button>
     <main className="grid w-full max-w-5xl grid-cols-1 overflow-hidden rounded-[5px] border border-border/60 bg-card shadow-[0_24px_80px_-45px_hsl(var(--foreground)/0.35)] lg:grid-cols-[1.05fr_0.95fr]">
       <section className="hidden min-h-[610px] flex-col justify-between border-r border-border/60 p-8 lg:flex">
         <div className="flex items-center gap-3">

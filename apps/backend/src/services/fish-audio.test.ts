@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { hashNarracao, ProvedorFishAudio } from "./fish-audio";
+import { hashNarracao, prepararTextoFish, ProvedorFishAudio } from "./fish-audio";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -11,7 +11,7 @@ describe("ProvedorFishAudio", () => {
     const fetchMock = vi.fn((_url: string | URL | Request, init?: RequestInit) => {
       expect(new Headers(init?.headers).get("model")).toBe("s2.1-pro-free");
       if (typeof init?.body !== "string") throw new Error("JSON_BODY_REQUIRED");
-      expect(JSON.parse(init.body)).toMatchObject({ text: "Olá mundo", reference_id: "voz", format: "mp3" });
+      expect(JSON.parse(init.body)).toMatchObject({ text: prepararTextoFish("Olá mundo"), reference_id: "voz", format: "mp3", temperature: 0.6, latency: "normal", normalize: false, prosody: { normalize_loudness: true } });
       return Promise.resolve(new Response(Buffer.alloc(512, 1), { status: 200 }));
     });
     await new ProvedorFishAudio("chave-teste-com-tamanho-suficiente", fetchMock).gerar({
@@ -26,6 +26,17 @@ describe("ProvedorFishAudio", () => {
     expect(hashNarracao(" texto ", "voz", { modelo: "s2.1-pro-free" })).toBe(base);
     expect(hashNarracao("outro", "voz", { modelo: "s2.1-pro-free" })).not.toBe(base);
     expect(hashNarracao("texto", "voz", { modelo: "s2.1-pro" })).not.toBe(base);
+    expect(hashNarracao("texto", "voz", { modelo: "s2.1-pro-free" }, "fish-v1")).not.toBe(base);
+  });
+
+  it("orienta pt-BR e fecha frases sem duplicar pontuação ou gerar voz para texto vazio", () => {
+    expect(prepararTextoFish(" Selecione   o cliente, ")).toContain("] Selecione o cliente.");
+    expect(prepararTextoFish("Confira o relatório...")).toContain("] Confira o relatório.");
+    expect(prepararTextoFish("Consulta concluída.")).toContain("] Consulta concluída.");
+    expect(prepararTextoFish('Abra a opção "Relatório".')).toContain('] Abra a opção "Relatório".');
+    expect(prepararTextoFish("Qual cliente?")).toContain("] Qual cliente?");
+    expect(prepararTextoFish("Texto")).toContain("português brasileiro");
+    expect(() => prepararTextoFish("  ")).toThrow("FISH_EMPTY_TEXT");
   });
 
   it("limita retry de 429 e não repete falha de rede nem pedido já cancelado", async () => {

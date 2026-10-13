@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Building2, Camera, CheckCircle2, Copy, FileVideo, FolderOpen, ImageIcon, ImageUp, Pencil, Search, SquarePen, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { criarAcessoArquivo, criarAcessoVideo, editarProjeto, salvarThumbnail, type EmpresaEstudio, type ProjetoEstudio } from "@/lib/estudio-api";
+import { corsArquivo, criarAcessoArquivo, criarAcessoVideo, editarProjeto, salvarThumbnail, type EmpresaEstudio, type ProjetoEstudio } from "@/lib/estudio-api";
 
 const campo = "w-full rounded-lg border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const terminal = new Set(["concluido", "erro", "cancelado", "roteiro_pronto", "ajuste_necessario"]);
 const normalizar = (valor: string) => valor.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase();
 const capas = new Map<string, Promise<string>>();
 type FonteMiniatura = { chave: string; src: string; imagem: boolean };
+
 
 function desenharQuadrado(fonte: CanvasImageSource, largura: number, altura: number): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
@@ -28,7 +29,7 @@ function capturarCapa(src: string): Promise<string> {
   if (existente) return existente;
   const captura = new Promise<string>((resolve, reject) => {
     const video = document.createElement("video");
-    video.muted = true; video.playsInline = true; video.preload = "auto"; video.crossOrigin = "use-credentials";
+    video.muted = true; video.playsInline = true; video.preload = "auto"; video.crossOrigin = corsArquivo(src);
     const limpar = () => { video.removeAttribute("src"); video.load(); };
     const desenhar = () => {
       try { const imagem = desenharQuadrado(video, video.videoWidth, video.videoHeight).toDataURL("image/jpeg", 0.78); limpar(); resolve(imagem); }
@@ -54,7 +55,7 @@ function Miniatura({ fonte, titulo, compacta = false }: { fonte?: FonteMiniatura
   }, [fonte]);
   const capa = fonte?.imagem ? fonte.src : capturada && capturada.chave === fonte?.chave ? capturada.src : "";
   return <div className={`${compacta ? "h-12 w-12" : "h-24 w-24 sm:h-28 sm:w-28"} shrink-0 overflow-hidden rounded-lg bg-muted`}>
-    {capa ? <img aria-label={`Miniatura de ${titulo}`} alt="" src={capa} className="h-full w-full object-cover" /> : fonte ? <video aria-label={`Miniatura de ${titulo}`} src={`${fonte.src}#t=0.1`} crossOrigin="use-credentials" muted playsInline preload="auto" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center"><FileVideo className="h-6 w-6 text-muted-foreground" /></div>}
+    {capa ? <img aria-label={`Miniatura de ${titulo}`} alt="" src={capa} className="h-full w-full object-cover" /> : fonte ? <video aria-label={`Miniatura de ${titulo}`} src={`${fonte.src}#t=0.1`} crossOrigin={corsArquivo(fonte.src)} muted playsInline preload="auto" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center"><FileVideo className="h-6 w-6 text-muted-foreground" /></div>}
   </div>;
 }
 
@@ -91,7 +92,7 @@ function EditorMiniatura({ projeto, token, aoFechar, aoSalvar }: { projeto: Proj
   }
 
   return <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !salvando) aoFechar(); }}><section role="dialog" aria-modal="true" aria-labelledby="titulo-editor-miniatura" className="hub-card w-full max-w-2xl rounded-2xl p-5"><div className="flex items-start justify-between gap-3"><div><p className="eyebrow">Miniatura</p><h2 id="titulo-editor-miniatura" className="mt-1 text-lg font-semibold">Editar capa de {projeto.titulo}</h2><p className="mt-1 text-xs text-muted-foreground">Pause no melhor momento ou envie uma imagem. O corte quadrado é automático.</p></div><Button size="icon" variant="ghost" aria-label="Fechar editor" disabled={salvando} onClick={aoFechar}><X className="h-4 w-4" /></Button></div>
-    {src ? <video ref={videoRef} src={src} crossOrigin="use-credentials" controls playsInline className="mt-4 aspect-video w-full rounded-xl bg-black object-contain" /> : <div className="mt-4 grid aspect-video place-items-center rounded-xl bg-muted text-sm text-muted-foreground">Carregando vídeo…</div>}
+    {src ? <video ref={videoRef} src={src} crossOrigin={corsArquivo(src)} controls playsInline className="mt-4 aspect-video w-full rounded-xl bg-black object-contain" /> : <div className="mt-4 grid aspect-video place-items-center rounded-xl bg-muted text-sm text-muted-foreground">Carregando vídeo…</div>}
     {erro && <p role="alert" className="mt-3 text-sm text-destructive">{erro}</p>}<div className="mt-4 flex flex-wrap gap-2"><Button disabled={salvando || !src} onClick={() => { void usarQuadroAtual(); }}><Camera className="h-4 w-4" />Usar quadro atual</Button><label className={`inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-background px-4 text-sm font-medium hover:bg-accent ${salvando ? "pointer-events-none opacity-50" : ""}`}><ImageUp className="h-4 w-4" />Enviar imagem<input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={salvando} onChange={(event) => { void usarArquivo(event.target.files?.[0]); }} /></label></div></section></div>;
 }
 

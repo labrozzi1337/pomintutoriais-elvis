@@ -19,8 +19,8 @@ it("usa a nova referência como principal e mantém a anterior como alternativa"
   const resultado = await garantirVozesConfiguradas(cliente, "nova", "anterior", "s2.1-pro-free");
 
   expect(inseridas).toMatchObject([
-    { nome: "Voz principal", referencia_externa: "nova" },
-    { nome: "Voz alternativa", referencia_externa: "anterior" }
+    { nome: "Erick Pomin", referencia_externa: "nova" },
+    { nome: "Voz Feminina", referencia_externa: "anterior" }
   ]);
   expect(resultado.padrao?.id).toBe("voz-1");
 });
@@ -32,5 +32,5 @@ it("mantém compatibilidade usando a voz anterior quando a principal não existe
 
   const resultado = await garantirVozesConfiguradas(cliente, undefined, "anterior", "s2.1-pro-free");
   expect(resultado.vozes).toHaveLength(1);
-  expect(resultado.padrao?.nome).toBe("Voz principal");
+  expect(resultado.padrao?.nome).toBe("Erick Pomin");
 });

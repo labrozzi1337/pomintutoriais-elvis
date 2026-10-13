@@ -47,9 +47,9 @@ async function garantirVoz(cliente: ServerSupabaseClient, referenceId: string, n
 export async function garantirVozesConfiguradas(cliente: ServerSupabaseClient, referenciaPrincipal: string | undefined, referenciaAlternativa: string | undefined, modelo: ModeloFish): Promise<{ padrao: Voz | null; vozes: Voz[] }> {
   const referenciaPadrao = referenciaPrincipal ?? referenciaAlternativa;
   if (!referenciaPadrao) return { padrao: null, vozes: [] };
-  const padrao = await garantirVoz(cliente, referenciaPadrao, "Voz principal", modelo);
+  const padrao = await garantirVoz(cliente, referenciaPadrao, "Erick Pomin", modelo);
   if (!referenciaAlternativa || referenciaAlternativa === referenciaPadrao) return { padrao, vozes: [padrao] };
-  const alternativa = await garantirVoz(cliente, referenciaAlternativa, "Voz alternativa", modelo);
+  const alternativa = await garantirVoz(cliente, referenciaAlternativa, "Voz Feminina", modelo);
   return { padrao, vozes: [padrao, alternativa] };
 }
 

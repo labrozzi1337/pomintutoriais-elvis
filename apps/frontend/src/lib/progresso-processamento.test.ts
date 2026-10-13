@@ -1,10 +1,27 @@
 import { expect, it } from "vitest";
 import type { ProcessamentoEstudio } from "./estudio-api";
-import { avancarPercentualVisual, limiteVisualDoFluxo, percentualDoFluxo } from "./progresso-processamento";
+import { avancarPercentualVisual, fluxoEmAndamento, limiteVisualDoFluxo, percentualDoFluxo } from "./progresso-processamento";
 
 function processamento(valores: Partial<ProcessamentoEstudio>): ProcessamentoEstudio {
   return { id: crypto.randomUUID(), tipo: "analisar_video", status: "analisando", progresso: 35, mensagem: null, codigo_erro: null, configuracao: {}, criado_em: "2026-10-11", ...valores };
 }
+
+it("mantém a tela durante a troca de análise para narração automática", () => {
+  expect(fluxoEmAndamento(processamento({ status: "analisando" }))).toBe(true);
+  expect(fluxoEmAndamento(processamento({ status: "concluido", configuracao: { narracao: {} } }))).toBe(true);
+  expect(fluxoEmAndamento(processamento({ tipo: "gerar_narracao", status: "recebido" }))).toBe(true);
+  expect(fluxoEmAndamento(processamento({ tipo: "gerar_narracao", status: "concluido", configuracao: { fluxoAutomatico: true } }))).toBe(false);
+});
+
+it("encerra etapas manuais e não prende o usuário em erro ou cancelamento", () => {
+  expect(fluxoEmAndamento(undefined)).toBe(false);
+  for (const status of ["concluido", "roteiro_pronto", "erro", "cancelado", "ajuste_necessario"]) {
+    expect(fluxoEmAndamento(processamento({ status }))).toBe(false);
+  }
+  for (const status of ["erro", "cancelado", "ajuste_necessario"]) {
+    expect(fluxoEmAndamento(processamento({ status, configuracao: { narracao: {} } }))).toBe(false);
+  }
+});
 
 it("mantém a análise automática abaixo do início da narração enquanto a IA responde", () => {
   const job = processamento({ configuracao: { narracao: {} } });

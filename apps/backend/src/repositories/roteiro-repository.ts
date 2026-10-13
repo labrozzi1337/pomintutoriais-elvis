@@ -92,14 +92,14 @@ export async function atualizarAnaliseInterna(cliente: ServerSupabaseClient, pro
 
 /** Cria uma nova versão de roteiro, seus blocos e conclui o processamento. */
 export async function concluirAnaliseInterna(cliente: ServerSupabaseClient, entrada: {
-  processamentoId: string; projetoId: string; videoId: string; modelo: string; uso: Json; blocos: BlocoTimeline[];
+  processamentoId: string; projetoId: string; videoId: string; modelo: string; promptVersao: string; uso: Json; blocos: BlocoTimeline[];
 }): Promise<string> {
   const agora = new Date().toISOString();
   const { data: anterior, error: anteriorError } = await cliente.from("roteiros").select("id,versao").eq("projeto_id", entrada.projetoId).order("versao", { ascending: false }).limit(1).maybeSingle();
   if (anteriorError) throw new Error("SCRIPT_VERSION_GET_FAILED", { cause: anteriorError });
   const { data: roteiro, error } = await cliente.from("roteiros").insert({
     projeto_id: entrada.projetoId, versao: (anterior?.versao ?? 0) + 1, status: "pronto", modelo: entrada.modelo,
-    prompt_versao: "roteiro-visual-v6-titulos-editoriais", uso_provedor: entrada.uso, criado_em: agora, atualizado_em: agora
+    prompt_versao: entrada.promptVersao, uso_provedor: entrada.uso, criado_em: agora, atualizado_em: agora
   }).select().single();
   if (error) throw new Error("SCRIPT_CREATE_FAILED", { cause: error });
   const { error: blocosError } = await cliente.from("blocos").insert(entrada.blocos.map((bloco, ordem) => ({

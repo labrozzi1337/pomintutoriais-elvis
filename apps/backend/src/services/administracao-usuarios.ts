@@ -100,3 +100,13 @@ export async function alterarTipoUsuario(cliente: ServerSupabaseClient, usuarioI
   if (error) throw new Error("USER_ROLE_UPDATE_FAILED", { cause: error });
   return data;
 }
+
+export async function alterarStatusUsuario(cliente: ServerSupabaseClient, usuarioId: string, status: "ativo" | "bloqueado", identidadeAtual: string): Promise<Usuario | null> {
+  const { data: atual, error: consultaError } = await cliente.from("usuarios").select("*").eq("id", usuarioId).maybeSingle();
+  if (consultaError) throw new Error("USER_GET_FAILED", { cause: consultaError });
+  if (!atual) return null;
+  if (atual.auth_id === identidadeAtual && status !== "ativo") throw new Error("USER_SELF_BLOCK");
+  const { data, error } = await cliente.from("usuarios").update({ status, atualizado_em: new Date().toISOString() }).eq("id", usuarioId).select().single();
+  if (error) throw new Error("USER_STATUS_UPDATE_FAILED", { cause: error });
+  return data;
+}

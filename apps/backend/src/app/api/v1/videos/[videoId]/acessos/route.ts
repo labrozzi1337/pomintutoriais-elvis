@@ -5,6 +5,7 @@ import { lerJson, respostaErro, tratarExcecao } from "@/lib/http";
 import { validarUuid } from "@/lib/schemas";
 import { obterArquivoDoVideo } from "@/repositories/estudio-repository";
 import { assinarAcesso } from "@/services/acesso-arquivo";
+import { ArmazenamentoB2, b2Configurada } from "@/services/b2";
 
 export const runtime = "nodejs";
 type ContextoRota = { params: Promise<{ videoId: string }> };
@@ -21,6 +22,10 @@ export async function POST(request: Request, { params }: ContextoRota): Promise<
     const recurso = await obterArquivoDoVideo(contexto.auth.cliente, videoId);
     if (!recurso) return respostaErro("NOT_FOUND", "Vídeo não encontrado.", 404);
     if (recurso.video.status !== "pronto") return respostaErro("CONFLICT", "Aguarde a validação do vídeo.", 409);
+    if (b2Configurada()) {
+      const url = await new ArmazenamentoB2().url(recurso.arquivo.chave_armazenamento, "video/mp4", entrada.modo === "baixar" ? recurso.video.nome_original : undefined);
+      return NextResponse.json({ data: { url, expiraEm: new Date(Date.now() + 300_000).toISOString() }, meta: { requestId } }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
+    }
     const token = assinarAcesso({ videoId, usuarioId: contexto.auth.usuario.id, modo: entrada.modo, expiraEm: Date.now() + 300_000 }, contexto.env.START_BACK_DOWNLOAD_SECRET);
     const url = `/api/v1/videos/${videoId}/conteudo`;
     const response = NextResponse.json({ data: { url, expiraEm: new Date(Date.now() + 300_000).toISOString() }, meta: { requestId } }, { status: 201 });

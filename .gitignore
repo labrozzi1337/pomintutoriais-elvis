@@ -1,10 +1,11 @@
 node_modules/
+apps/backend/src/app/.well-known/workflow/
+.workflow-data/
 .next/
 dist/
 coverage/
 playwright-report/
 artifacts/
-apps/frontend/public/integracao/
 apps/backend/data/
 test-results/
 .env
@@ -21,3 +22,5 @@ supabase/.temp/
 .env
 .env.*
 !.env.example
+.vercel
+.env*

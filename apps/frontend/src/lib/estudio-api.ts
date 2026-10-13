@@ -29,12 +29,12 @@ export type ProcessamentoEstudio = z.infer<typeof processamentoSchema>;
 export type RoteiroEstudio = z.infer<typeof roteiroSchema>["data"];
 export type BlocoEstudio = RoteiroEstudio["blocos"][number];
 export type OpcoesNarracao = { modoAudio: "substituir" | "ducking" | "manter_original"; vozId?: string; ajustarTextoAutomaticamente: boolean; gerarLegendas: boolean };
-export type OpcoesAnalise = { modelo: "gpt-6.1-sol" | "gpt-6-astra"; tom: "natural" | "conversado"; narrarAoConcluir?: boolean };
+export type OpcoesAnalise = { tom: "natural" | "conversado"; narrarAoConcluir?: boolean };
 const configuracoesSchema = z.object({ data: z.object({ vozes: z.array(z.object({ id: z.string(), nome: z.string(), padrao: z.boolean().default(false), modelo: z.string().optional() })), vozPadraoId: z.string().nullable().optional(), limiteBytes: z.number(), limiteDuracaoMs: z.number(), modeloPadrao: z.string(), retencao: z.string() }) });
 export type ConfiguracoesEstudio = z.infer<typeof configuracoesSchema>["data"];
 const organizacaoSchema = z.object({ data: z.array(z.object({ id: z.string().uuid(), nome: z.string(), areas: z.array(z.object({ id: z.string().uuid(), empresa_id: z.string().uuid(), nome: z.string() })) })) });
-const recordesSchema = z.object({ data: z.array(z.object({ nickname: z.string(), score: z.number().int(), atualizado_em: z.string() })) });
-const usuariosSchema = z.object({ data: z.object({ administrador: z.boolean(), usuarioAtualId: z.string().uuid(), usuarios: z.array(z.object({ id: z.string().uuid(), email: z.string(), nome: z.string().nullable(), tipo: z.enum(["comum", "admin"]), metodo: z.enum(["local", "microsoft"]), status: z.enum(["ativo", "bloqueado"]), confirmado: z.boolean(), criado_em: z.string(), ultimoAcessoEm: z.string().nullable() })) }) });
+const usuarioSchema = z.object({ id: z.string().uuid(), email: z.string(), nome: z.string().nullable(), tipo: z.enum(["comum", "admin"]), metodo: z.enum(["local", "microsoft"]), status: z.enum(["ativo", "bloqueado"]), confirmado: z.boolean(), criado_em: z.string(), ultimoAcessoEm: z.string().nullable() });
+const usuariosSchema = z.object({ data: z.object({ administrador: z.boolean(), usuarioAtualId: z.string().uuid(), usuarios: z.array(usuarioSchema), bloqueados: z.array(usuarioSchema) }) });
 const passoWikiSchema = z.object({ id: z.string().uuid(), ordem: z.number().int(), titulo: z.string(), texto: z.string(), inicioMs: z.number().int().nonnegative(), fimMs: z.number().int().positive(), topico: z.string() });
 const artigoWikiSchema = z.object({
   id: z.string().uuid(), projetoId: z.string().uuid(), titulo: z.string(), empresa: z.string(), area: z.string(),
@@ -44,12 +44,19 @@ const artigoWikiSchema = z.object({
 });
 const wikiSchema = z.object({ data: z.array(artigoWikiSchema) });
 export type EmpresaEstudio = z.infer<typeof organizacaoSchema>["data"][number];
-export type RecordeCobrinha = z.infer<typeof recordesSchema>["data"][number];
 export type ControleUsuarios = z.infer<typeof usuariosSchema>["data"];
 export type ArtigoWiki = z.infer<typeof artigoWikiSchema>;
 
 export async function obterConfiguracoes(token: string): Promise<ConfiguracoesEstudio> {
   return (await requisicao(`${API_URL}/api/v1/configuracoes`, token, {}, configuracoesSchema)).data;
+}
+
+/** Gera uma amostra curta da voz escolhida para reprodução local no navegador. */
+export async function obterAmostraVoz(token: string, vozId: string): Promise<Blob> {
+  const response = await fetch(`${API_URL}/api/v1/configuracoes/vozes/${vozId}/amostra`, { method: "POST", credentials: "include", headers: autenticacao(token) });
+  if (!response.ok) throw await erroApi(response);
+  if (!response.headers.get("content-type")?.startsWith("audio/")) throw new Error("A amostra de voz não foi gerada corretamente.");
+  return response.blob();
 }
 
 /** Lista os projetos que o backend autorizou para a sessão. */
@@ -83,14 +90,6 @@ export async function editarProjeto(token: string, projetoId: string, entrada: {
   await requisicao(`${API_URL}/api/v1/projetos/${projetoId}`, token, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entrada) }, z.object({ data: z.object({ id: z.string().uuid() }).passthrough() }));
 }
 
-export async function listarRecordes(token: string): Promise<RecordeCobrinha[]> {
-  return (await requisicao(`${API_URL}/api/v1/recordes`, token, {}, recordesSchema)).data;
-}
-
-export async function registrarRecorde(token: string, nickname: string, score: number): Promise<void> {
-  await requisicao(`${API_URL}/api/v1/recordes`, token, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nickname, score }) }, z.object({ data: z.object({ nickname: z.string(), score: z.number() }).passthrough() }));
-}
-
 export async function listarUsuarios(token: string): Promise<ControleUsuarios> {
   return (await requisicao(`${API_URL}/api/v1/usuarios`, token, {}, usuariosSchema)).data;
 }
@@ -108,6 +107,10 @@ export async function alterarTipoUsuario(token: string, usuarioId: string, tipo:
   await requisicao(`${API_URL}/api/v1/usuarios/${usuarioId}`, token, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipo }) }, z.object({ data: z.object({ id: z.string().uuid() }).passthrough() }));
 }
 
+export async function alterarStatusUsuario(token: string, usuarioId: string, status: "ativo" | "bloqueado"): Promise<void> {
+  await requisicao(`${API_URL}/api/v1/usuarios/${usuarioId}`, token, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) }, z.object({ data: z.object({ id: z.string().uuid() }).passthrough() }));
+}
+
 export async function listarWiki(token: string): Promise<ArtigoWiki[]> {
   return (await requisicao(`${API_URL}/api/v1/wiki`, token, {}, wikiSchema)).data;
 }
@@ -118,6 +121,14 @@ export async function salvarArtigoWiki(token: string, artigoId: string, resumo: 
 }
 
 /** Exclui um projeto autorizado e seus arquivos associados. */
+export function credenciaisArquivo(url: string): RequestCredentials {
+  return new URL(url, "https://local.invalid").hostname.endsWith(".backblazeb2.com") ? "omit" : "include";
+}
+
+export function corsArquivo(url: string): "anonymous" | "use-credentials" {
+  return credenciaisArquivo(url) === "omit" ? "anonymous" : "use-credentials";
+}
+
 export async function excluirProjeto(token: string, projetoId: string): Promise<void> {
   const response = await fetch(`${API_URL}/api/v1/projetos/${projetoId}`, { method: "DELETE", headers: autenticacao(token) });
   if (!response.ok) throw await erroApi(response);
@@ -125,7 +136,7 @@ export async function excluirProjeto(token: string, projetoId: string): Promise<
 
 /** Envia o MP4 em partes sequenciais e informa progresso real de bytes. */
 export async function enviarVideo(token: string, projetoId: string, arquivo: File, onProgress: (percentual: number) => void, signal?: AbortSignal): Promise<void> {
-  const inicioSchema = z.object({ data: z.object({ uploadId: z.string().uuid(), tamanhoParte: z.number().int().positive() }) });
+  const inicioSchema = z.object({ data: z.object({ uploadId: z.string().uuid(), tamanhoParte: z.number().int().positive(), urlsPartes: z.array(z.string().url()).optional() }) });
   const inicio = await requisicao(`${API_URL}/api/v1/projetos/${projetoId}/uploads`, token, {
     method: "POST", signal, headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ nomeArquivo: arquivo.name, mimeType: "video/mp4", tamanhoBytes: arquivo.size })
@@ -133,8 +144,10 @@ export async function enviarVideo(token: string, projetoId: string, arquivo: Fil
   let enviado = 0;
   while (enviado < arquivo.size) {
     const parte = arquivo.slice(enviado, Math.min(enviado + inicio.data.tamanhoParte, arquivo.size));
-    const response = await fetch(`${API_URL}/api/v1/projetos/${projetoId}/uploads/${inicio.data.uploadId}`, {
-      method: "PUT", signal, headers: autenticacao(token), body: parte
+    const urlParte = inicio.data.urlsPartes?.[Math.floor(enviado / inicio.data.tamanhoParte)];
+    if (inicio.data.urlsPartes && !urlParte) throw new Error("Parte do upload não autorizada.");
+    const response = await fetch(urlParte ?? `${API_URL}/api/v1/projetos/${projetoId}/uploads/${inicio.data.uploadId}`, {
+      method: "PUT", signal, headers: urlParte ? {} : autenticacao(token), body: parte
     });
     if (!response.ok) throw await erroApi(response);
     enviado += parte.size;
@@ -150,7 +163,7 @@ export async function criarAcessoVideo(token: string, videoId: string, modo: "re
   const resultado = await requisicao(`${API_URL}/api/v1/videos/${videoId}/acessos`, token, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modo })
   }, schema);
-  return `${API_URL}${resultado.data.url}`;
+  return resultado.data.url.startsWith("https://") ? resultado.data.url : `${API_URL}${resultado.data.url}`;
 }
 
 /** Agenda a análise visual no worker sem bloquear a interface. */
@@ -192,7 +205,7 @@ export async function cancelarProcessamento(token: string, id: string): Promise<
 export async function criarAcessoArquivo(token: string, arquivoId: string, modo: "baixar" | "reproduzir" = "baixar"): Promise<string> {
   const schema = z.object({ data: z.object({ url: z.string(), expiraEm: z.string() }) });
   const resultado = await requisicao(`${API_URL}/api/v1/arquivos/${arquivoId}/acessos`, token, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modo }) }, schema);
-  return `${API_URL}${resultado.data.url}`;
+  return resultado.data.url.startsWith("https://") ? resultado.data.url : `${API_URL}${resultado.data.url}`;
 }
 
 export async function salvarThumbnail(token: string, projetoId: string, imagem: Blob): Promise<void> {

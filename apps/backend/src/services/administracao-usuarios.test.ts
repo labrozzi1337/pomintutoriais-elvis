@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { autorizarUsuario, listarUsuarios } from "./administracao-usuarios";
+import { alterarStatusUsuario, autorizarUsuario, listarUsuarios } from "./administracao-usuarios";
 
 it("recusa identidade sem perfil previamente liberado", async () => {
   const cliente = { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }), ilike: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }) }) } as never;
@@ -34,4 +34,14 @@ it("lista os perfis mesmo quando o provedor de identidades está indisponível",
   } as never;
 
   await expect(listarUsuarios(cliente)).resolves.toEqual([{ ...perfil, confirmado: true, ultimoAcessoEm: null }]);
+});
+
+it("bloqueia um usuário sem apagar o perfil usado pelo autocomplete", async () => {
+  const perfil = { id: "perfil", auth_id: "auth", status: "ativo" };
+  const bloqueado = { ...perfil, status: "bloqueado" };
+  const cliente = { from: () => ({
+    select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: perfil, error: null }) }) }),
+    update: () => ({ eq: () => ({ select: () => ({ single: () => Promise.resolve({ data: bloqueado, error: null }) }) }) })
+  }) } as never;
+  await expect(alterarStatusUsuario(cliente, "perfil", "bloqueado", "outro-auth")).resolves.toEqual(bloqueado);
 });

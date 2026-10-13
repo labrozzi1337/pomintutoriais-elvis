@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, CircleCheck, LogOut } from "lucide-react";
+import { ArrowLeft, CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { BibliotecaTutoriais } from "@/components/estudio/BibliotecaTutoriais";
 import { EditorTutorial } from "@/components/estudio/EditorTutorial";
@@ -8,14 +8,14 @@ import { EtapasTutorial } from "@/components/estudio/EtapasTutorial";
 import { IntegracaoWindows } from "@/components/estudio/IntegracaoWindows";
 import { ProcessamentoCriativo } from "@/components/estudio/ProcessamentoCriativo";
 import { useAuth } from "@/contexts/auth";
-import { cancelarProcessamento, criarAcessoVideo, criarProjeto, enviarVideo, excluirProjeto, listarOrganizacao, listarProjetos, obterConfiguracoes, obterRoteiro, type ConfiguracoesEstudio, type EmpresaEstudio, type ProjetoEstudio, type RoteiroEstudio } from "@/lib/estudio-api";
-import { percentualDoFluxo } from "@/lib/progresso-processamento";
+import { credenciaisArquivo, cancelarProcessamento, criarAcessoVideo, criarProjeto, enviarVideo, excluirProjeto, listarOrganizacao, listarProjetos, obterConfiguracoes, obterRoteiro, type ConfiguracoesEstudio, type EmpresaEstudio, type ProjetoEstudio, type RoteiroEstudio } from "@/lib/estudio-api";
+import { fluxoEmAndamento, percentualDoFluxo } from "@/lib/progresso-processamento";
 
 const terminal = new Set(["concluido", "erro", "cancelado", "roteiro_pronto", "ajuste_necessario"]);
 const campo = "w-full rounded-lg border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export function StudioPage({ modo = "biblioteca" }: { modo?: "biblioteca" | "criar" }) {
-  const { session, sair, tipo } = useAuth();
+  const { session, tipo } = useAuth();
   const token = session?.access_token ?? "";
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -36,7 +36,7 @@ export function StudioPage({ modo = "biblioteca" }: { modo?: "biblioteca" | "cri
   const upload = useRef<AbortController | null>(null);
   const selecao = projetos.find((projeto) => projeto.id === projetoId);
   const job = selecao?.processamentos.find((item) => !terminal.has(item.status)) ?? selecao?.processamentos[0];
-  const ocupado = Boolean(job && !terminal.has(job.status));
+  const ocupado = fluxoEmAndamento(job);
   const percentualFluxo = job ? percentualDoFluxo(job) : 0;
   const areas = empresas.find((empresa) => empresa.id === empresaId)?.areas ?? [];
 
@@ -71,7 +71,7 @@ export function StudioPage({ modo = "biblioteca" }: { modo?: "biblioteca" | "cri
   }, [token, projetoId, job?.status, modo]);
 
   useEffect(() => {
-    if (!projetos.some((projeto) => projeto.processamentos.some((item) => !terminal.has(item.status)))) return;
+    if (!projetos.some((projeto) => projeto.processamentos.some((item) => !terminal.has(item.status)) || fluxoEmAndamento(projeto.processamentos[0]))) return;
     const timer = window.setInterval(() => { if (!document.hidden) void recarregar().catch((error: unknown) => setErro(error instanceof Error ? error.message : "Sem conexão. Tente atualizar.")); }, 3000);
     return () => window.clearInterval(timer);
   }, [projetos, recarregar]);
@@ -100,13 +100,14 @@ export function StudioPage({ modo = "biblioteca" }: { modo?: "biblioteca" | "cri
     const empresa = empresas.find((item) => item.nome === projeto.empresa);
     const area = empresa?.areas.find((item) => item.nome === projeto.setor);
     if (!video || !empresa || !area || !window.confirm("Duplicar o MP4 em um novo projeto? A cópia ocupa armazenamento adicional.")) return;
-    const resposta = await fetch(await criarAcessoVideo(token, video.id, "baixar"), { credentials: "include" });
+    const urlOriginal = await criarAcessoVideo(token, video.id, "baixar");
+    const resposta = await fetch(urlOriginal, { credentials: credenciaisArquivo(urlOriginal) });
     if (!resposta.ok) throw new Error("Não foi possível baixar o original para duplicar.");
     await importar(undefined, new File([await resposta.blob()], video.nome_original, { type: "video/mp4" }), empresa.id, area.id, `${projeto.titulo.slice(0, 150)} (cópia)`);
   }
 
   if (modo === "biblioteca") return <div className="mx-auto min-h-full max-w-[1600px] space-y-6 p-4 sm:p-6 lg:p-8">
-    <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="eyebrow">Biblioteca</p><h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Todos os seus vídeos</h1><p className="mt-2 text-sm text-muted-foreground">Encontre originais e tutoriais finalizados. Para produzir um novo, use a área de criação.</p></div><div className="flex gap-2"><Button onClick={() => { void navigate("/criar"); }}>Criar novo vídeo</Button><Button variant="outline" onClick={() => { void executar(sair); }}><LogOut className="h-4 w-4" />Sair</Button></div></header>
+    <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="eyebrow">Biblioteca</p><h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Todos os seus vídeos</h1><p className="mt-2 text-sm text-muted-foreground">Encontre originais e tutoriais finalizados. Para produzir um novo, use a área de criação.</p></div><div className="flex gap-2"><Button onClick={() => { void navigate("/criar"); }}>Criar novo vídeo</Button></div></header>
     {erro && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{erro}</p>}
     <BibliotecaTutoriais projetos={projetos} empresas={empresas} carregando={carregando} token={token} projetoId={null} progresso={progresso} podeExcluir={tipo === "admin"} aoEditar={(id) => { void navigate(`/criar?projeto=${id}`); }} aoVerTutorial={(id) => { void navigate(`/wiki?projeto=${id}`); }} aoDuplicar={(projeto) => { void executar(() => duplicar(projeto)); }} aoExcluir={(projeto) => { if (window.confirm("Excluir permanentemente este tutorial e todos os arquivos vinculados?")) void executar(async () => { await excluirProjeto(token, projeto.id); await recarregar(); }); }} aoAtualizar={recarregar} />
   </div>;
@@ -122,6 +123,6 @@ export function StudioPage({ modo = "biblioteca" }: { modo?: "biblioteca" | "cri
     </section>}
     {progresso !== null && <div className="hub-card rounded-xl p-4" role="status"><div className="flex justify-between text-sm"><span>{progresso < 100 ? `Enviando arquivo · ${progresso}%` : "Upload concluído · preparando o vídeo…"}</span>{progresso < 100 && <Button variant="ghost" onClick={() => upload.current?.abort()}>Cancelar upload</Button>}</div><progress className="mt-2 h-2 w-full accent-primary" max={100} value={progresso} aria-label="Progresso do upload" /></div>}
     {projetoId && !selecao && carregando && <p className="text-sm text-muted-foreground">Abrindo projeto…</p>}
-    {selecao && (ocupado && job ? <ProcessamentoCriativo key={job.id} token={token} nickname={session?.user.email?.split("@")[0]?.slice(0, 10) ?? "JOGADOR"} processamento={job} percentual={percentualFluxo} aoCancelar={() => { void executar(async () => { await cancelarProcessamento(token, job.id); await recarregar(); }); }} /> : <>{job && ["erro", "cancelado", "ajuste_necessario"].includes(job.status) && <div className="hub-card rounded-xl p-4" role="status"><p className="text-sm font-medium">{job.status.replaceAll("_", " ")}</p><p className="mt-1 text-xs text-muted-foreground">{job.mensagem}</p></div>}{abrindo ? <p className="text-sm text-muted-foreground">Abrindo roteiro…</p> : <EditorTutorial key={`${selecao.id}-${roteiro?.atualizado_em ?? "sem-roteiro"}`} token={token} projeto={selecao} roteiro={roteiro} configuracoes={config} ocupado={ocupado} aoAtualizar={atualizarEditor} />}</>)}
+    {selecao && (ocupado && job ? <ProcessamentoCriativo key={selecao.id} finalizado={false} processamento={job} percentual={percentualFluxo} aoCancelar={() => { void executar(async () => { await cancelarProcessamento(token, job.id); await recarregar(); }); }} /> : <>{job && ["erro", "cancelado", "ajuste_necessario"].includes(job.status) && <div className="hub-card rounded-xl p-4" role="status"><p className="text-sm font-medium">{job.status.replaceAll("_", " ")}</p><p className="mt-1 text-xs text-muted-foreground">{job.mensagem}</p></div>}{abrindo ? <p className="text-sm text-muted-foreground">Abrindo roteiro…</p> : <EditorTutorial key={`${selecao.id}-${roteiro?.atualizado_em ?? "sem-roteiro"}`} token={token} projeto={selecao} roteiro={roteiro} configuracoes={config} ocupado={ocupado} aoAtualizar={atualizarEditor} />}</>)}
   </div>;
 }

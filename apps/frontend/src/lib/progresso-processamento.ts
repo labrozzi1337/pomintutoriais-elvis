@@ -1,5 +1,15 @@
 import type { ProcessamentoEstudio } from "./estudio-api";
 
+const estadosTerminais = new Set(["concluido", "erro", "cancelado", "roteiro_pronto", "ajuste_necessario"]);
+
+export function fluxoEmAndamento(processamento: ProcessamentoEstudio | undefined): boolean {
+  if (!processamento) return false;
+  if (!estadosTerminais.has(processamento.status)) return true;
+  // A análise pode terminar antes de a narração automática aparecer na próxima consulta.
+  return processamento.tipo === "analisar_video" && Boolean(processamento.configuracao.narracao) &&
+    ["concluido", "roteiro_pronto"].includes(processamento.status);
+}
+
 function converterParaFluxo(processamento: ProcessamentoEstudio, progresso: number): number {
   if (processamento.tipo === "analisar_video" && processamento.configuracao.narracao) return progresso * 0.45;
   if (processamento.tipo === "gerar_narracao" && processamento.configuracao.fluxoAutomatico) return 45 + progresso * 0.55;

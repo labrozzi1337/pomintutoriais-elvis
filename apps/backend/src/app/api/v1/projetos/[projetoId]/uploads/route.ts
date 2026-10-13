@@ -5,6 +5,7 @@ import { lerJson, respostaErro, tratarExcecao } from "@/lib/http";
 import { validarUuid } from "@/lib/schemas";
 import { obterProjeto } from "@/repositories/estudio-repository";
 import { ArmazenamentoLocal, normalizarNomeArquivo } from "@/services/armazenamento-arquivos";
+import { ArmazenamentoB2, b2Configurada, TAMANHO_PARTE_B2 } from "@/services/b2";
 
 export const runtime = "nodejs";
 type ContextoRota = { params: Promise<{ projetoId: string }> };
@@ -28,6 +29,10 @@ export async function POST(request: Request, { params }: ContextoRota): Promise<
     const nomeOriginal = normalizarNomeArquivo(entrada.nomeArquivo);
     if (!nomeOriginal.toLowerCase().endsWith(".mp4")) return respostaErro("UPLOAD_INVALID", "Envie um arquivo MP4.", 415);
     const uploadId = crypto.randomUUID();
+    if (b2Configurada()) {
+      const urlsPartes = await new ArmazenamentoB2().iniciarUpload({ id: uploadId, projetoId, usuarioId: contexto.auth.usuario.id, nomeOriginal, mimeType: entrada.mimeType, tamanhoEsperado: entrada.tamanhoBytes, bytesRecebidos: 0 });
+      return NextResponse.json({ data: { uploadId, tamanhoParte: TAMANHO_PARTE_B2, bytesRecebidos: 0, urlsPartes }, meta: { requestId } }, { status: 201 });
+    }
     const armazenamento = new ArmazenamentoLocal(contexto.env.START_BACK_STORAGE_ROOT);
     await armazenamento.iniciarUpload({ id: uploadId, projetoId, usuarioId: contexto.auth.usuario.id, nomeOriginal, mimeType: entrada.mimeType, tamanhoEsperado: entrada.tamanhoBytes, bytesRecebidos: 0 });
     return NextResponse.json({ data: { uploadId, tamanhoParte: contexto.env.START_BACK_UPLOAD_CHUNK_BYTES, bytesRecebidos: 0 }, meta: { requestId } }, { status: 201 });

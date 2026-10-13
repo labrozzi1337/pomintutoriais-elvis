@@ -3,6 +3,7 @@ import { obterContextoApi } from "@/lib/api-context";
 import { respostaErro, tratarExcecao } from "@/lib/http";
 import { validarUuid } from "@/lib/schemas";
 import { ArmazenamentoLocal } from "@/services/armazenamento-arquivos";
+import { b2Configurada } from "@/services/b2";
 
 export const runtime = "nodejs";
 type ContextoRota = { params: Promise<{ projetoId: string; uploadId: string }> };
@@ -13,6 +14,7 @@ export async function PUT(request: Request, { params }: ContextoRota): Promise<R
   try {
     const contexto = await obterContextoApi(request);
     if (!contexto.ok) return contexto.response;
+    if (b2Configurada()) return respostaErro("UPLOAD_INVALID", "Atualize a página para enviar diretamente ao armazenamento.", 400);
     const ids = await params;
     const projetoId = validarUuid(ids.projetoId);
     const uploadId = validarUuid(ids.uploadId);

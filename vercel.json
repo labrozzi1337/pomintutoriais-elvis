@@ -3,14 +3,20 @@
   "services": {
     "backend": {
       "root": "apps/backend",
+      "installCommand": "npm install --include=dev",
       "framework": "nextjs"
     },
     "frontend": {
       "root": "apps/frontend",
-      "framework": "vite"
+      "installCommand": "npm install --include=dev",
+      "framework": "vite",
+      "rewrites": [
+        { "source": "/(.*)", "destination": "/index.html" }
+      ]
     }
   },
   "rewrites": [
+    { "source": "/.well-known/workflow/(.*)", "destination": { "service": "backend" } },
     { "source": "/api/(.*)", "destination": { "service": "backend" } },
     { "source": "/(.*)", "destination": { "service": "frontend" } }
   ]

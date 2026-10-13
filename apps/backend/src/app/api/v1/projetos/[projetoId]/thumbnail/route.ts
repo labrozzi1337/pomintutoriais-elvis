@@ -6,6 +6,7 @@ import { respostaErro, tratarExcecao } from "@/lib/http";
 import { validarUuid } from "@/lib/schemas";
 import { registrarThumbnail } from "@/repositories/estudio-repository";
 import { ArmazenamentoLocal } from "@/services/armazenamento-arquivos";
+import { ArmazenamentoB2, b2Configurada } from "@/services/b2";
 
 export const runtime = "nodejs";
 const LIMITE_CAPA = 2 * 1024 * 1024;
@@ -14,7 +15,7 @@ type ContextoRota = { params: Promise<{ projetoId: string }> };
 export async function PUT(request: Request, { params }: ContextoRota): Promise<Response> {
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   let chave = "";
-  let armazenamento: ArmazenamentoLocal | null = null;
+  let armazenamento: ArmazenamentoLocal | ArmazenamentoB2 | null = null;
   try {
     const contexto = await obterContextoApi(request);
     if (!contexto.ok) return contexto.response;
@@ -26,7 +27,7 @@ export async function PUT(request: Request, { params }: ContextoRota): Promise<R
     const projetoId = validarUuid((await params).projetoId);
     const id = crypto.randomUUID();
     chave = path.posix.join("projetos", projetoId, "thumbnails", `${id}.jpg`);
-    armazenamento = new ArmazenamentoLocal(contexto.env.START_BACK_STORAGE_ROOT);
+    armazenamento = b2Configurada() ? new ArmazenamentoB2() : new ArmazenamentoLocal(contexto.env.START_BACK_STORAGE_ROOT);
     await armazenamento.salvar(chave, dados);
     const resultado = await registrarThumbnail(contexto.auth.cliente, projetoId, { id, chave_armazenamento: chave, mime_type: "image/jpeg", tamanho_bytes: dados.length, hash_sha256: createHash("sha256").update(dados).digest("hex"), criado_em: new Date().toISOString() });
     if (!resultado) { await armazenamento.excluir(chave); return respostaErro("NOT_FOUND", "Projeto não encontrado.", 404); }

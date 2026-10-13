@@ -19,6 +19,7 @@ export interface EntradaFish {
 }
 
 type FetchFish = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+const DIRECAO_VOZ = "[português brasileiro, didático e conversado, ritmo natural, entonação descendente ao concluir cada frase]";
 
 /** Adapter isolado para o contrato oficial POST /v1/tts da Fish Audio. */
 export class ProvedorFishAudio {
@@ -44,11 +45,14 @@ export class ProvedorFishAudio {
             model: entrada.configuracao.modelo
           },
           body: JSON.stringify({
-            text: normalizarTextoNarracao(entrada.texto),
+            text: prepararTextoFish(entrada.texto),
             reference_id: entrada.referenceId,
             format: "mp3",
-            temperature: entrada.configuracao.temperatura ?? 0.7,
-            top_p: entrada.configuracao.topP ?? 0.7
+            temperature: entrada.configuracao.temperatura ?? 0.6,
+            top_p: entrada.configuracao.topP ?? 0.7,
+            latency: "normal",
+            normalize: false,
+            prosody: { normalize_loudness: true }
           }),
           signal
         });
@@ -72,12 +76,19 @@ export class ProvedorFishAudio {
 }
 
 /** Garante cache estável quando texto, voz, modelo ou parâmetros mudarem. */
-export function hashNarracao(texto: string, voz: string, configuracao: ConfiguracaoFish, versao = "fish-v1"): string {
-  return createHash("sha256").update(JSON.stringify({ texto: normalizarTextoNarracao(texto), voz, configuracao, versao })).digest("hex");
+export function hashNarracao(texto: string, voz: string, configuracao: ConfiguracaoFish, versao = "fish-v2-ptbr"): string {
+  return createHash("sha256").update(JSON.stringify({ texto: prepararTextoFish(texto), voz, configuracao, versao })).digest("hex");
 }
 
 export function normalizarTextoNarracao(texto: string): string {
   return texto.normalize("NFC").replace(/\s+/g, " ").trim();
+}
+
+/** Direções S2 ficam somente na síntese; copy e legendas mantêm o texto original. */
+export function prepararTextoFish(texto: string): string {
+  const fala = normalizarTextoNarracao(texto).replace(/(?:\.{2,}|…|[,;:])+$/u, "").trim();
+  if (!fala) throw new Error("FISH_EMPTY_TEXT");
+  return `${DIRECAO_VOZ} ${fala}${/[.!?]["'”’»)\]]*$/u.test(fala) ? "" : "."}`;
 }
 
 function esperar(ms: number, signal?: AbortSignal): Promise<void> {

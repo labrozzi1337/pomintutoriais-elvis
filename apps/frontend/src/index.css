@@ -134,10 +134,6 @@
     @apply text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground;
   }
 
-  .status-fade {
-    animation: status-fade 2.6s ease-in-out;
-  }
-
   .hub-hero {
     background: linear-gradient(135deg, #050e17 0%, #0b1a27 56%, #31576b 100%);
     box-shadow: 0 22px 55px -28px rgba(5, 14, 23, 0.85);
@@ -232,11 +228,6 @@
   .company-status.success { background: rgba(36,148,99,.10); color: #249463; }
   .company-status.pending { background: rgb(var(--company-primary) / .10); color: rgb(var(--company-primary)); }
   .company-link { color: rgb(var(--company-primary)); @apply inline-flex items-center gap-1 text-[11px] font-semibold; }
-}
-
-@keyframes status-fade {
-  0%, 100% { opacity: 0; transform: translateY(4px); }
-  18%, 82% { opacity: 1; transform: translateY(0); }
 }
 
 @media (min-width: 1536px) {

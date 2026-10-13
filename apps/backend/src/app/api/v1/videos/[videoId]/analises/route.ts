@@ -34,7 +34,7 @@ export async function POST(request: Request, { params }: ContextoRota): Promise<
       if (!padrao) return respostaErro("CONFIGURATION_ERROR", "Configure a voz padrão no servidor para gerar o tutorial completo.", 503);
       narracao = { vozId: padrao.id, modelo: contexto.env.START_BACK_FISH_MODEL, modoAudio: "substituir" as const, ajustarTextoAutomaticamente: true, gerarLegendas: true, fluxoAutomatico: true };
     }
-    const processamento = await criarAnalise(contexto.auth.cliente, validarUuid((await params).videoId), contexto.auth.usuario.id, entrada.confirmarSubstituicao, { modelo: entrada.modelo ?? contexto.env.START_BACK_OPENAI_MODEL, tom: entrada.tom, narracao });
+    const processamento = await criarAnalise(contexto.auth.cliente, validarUuid((await params).videoId), contexto.auth.usuario.id, entrada.confirmarSubstituicao, { modelo: contexto.env.START_BACK_OPENAI_MODEL, tom: entrada.tom, narracao });
     if (!processamento) return respostaErro("NOT_FOUND", "Vídeo não encontrado.", 404);
     const jobId = await enfileirarAnaliseVideo(contexto.env, processamento.id);
     await vincularJob(contexto.auth.cliente, processamento.id, jobId);

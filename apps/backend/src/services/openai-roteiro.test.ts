@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gerarRoteiroComIa } from "@/services/openai-roteiro";
+import { gerarRoteiroComIa, reduzirTextoNarracao } from "@/services/openai-roteiro";
 
 describe("integração explícita com provedor simulado", () => {
   it("usa o padrão fluido do POP-1.1 e evita narração metalinguística", async () => {
@@ -12,13 +12,17 @@ describe("integração explícita com provedor simulado", () => {
     const prompt = JSON.stringify(requisicao);
     expect(prompt).toContain("padrão editorial do POP-1.1");
     expect(prompt).toContain("evitando pausas longas");
-    expect(prompt).toContain("nunca use frases metalinguísticas");
+    expect(prompt).toContain("Nunca use frases metalinguísticas");
     expect(prompt).toContain("ensinar o funcionamento estável da plataforma");
     expect(prompt).toContain("Não os transforme no assunto da narração");
     expect(prompt).toContain("Nesta área, você consulta e organiza os registros cadastrados");
     expect(prompt).toContain("Não crie um tópico para cada clique");
     expect(prompt).toContain("nunca o que a narração diz");
     expect(prompt).toContain("Acessando dados do cliente com certificado");
+    expect(prompt).toContain("examine a sequência inteira");
+    expect(prompt).toContain("Cada bloco deve conter frases completas");
+    expect(prompt).toContain("não divida uma frase por causa de um clique");
+    expect(prompt).toContain("intervalos sem quadros não comprovam ações");
   });
 
   it("valida a resposta estruturada antes de aceitá-la", async () => {
@@ -46,5 +50,19 @@ describe("integração explícita com provedor simulado", () => {
   it("preserva erro de timeout sem fabricar um roteiro", async () => {
     const cliente = { responses: { parse: () => Promise.reject(new Error("TIMEOUT_TEST")) } } as never;
     await expect(gerarRoteiroComIa({ apiKey: "teste", modelo: "gpt-6.1-sol", duracaoVideoMs: 1000, quadros: [] }, cliente)).rejects.toThrow("TIMEOUT_TEST");
+  });
+
+  it("reduz a fala com contexto das etapas vizinhas sem alterar essas falas", async () => {
+    let requisicao: unknown;
+    const cliente = { responses: { parse: (entrada: unknown) => {
+      requisicao = entrada;
+      return Promise.resolve({ status: "completed", output_parsed: { texto: "Selecione o cliente para consultar os documentos." } });
+    } } } as never;
+    const texto = await reduzirTextoNarracao({ apiKey: "teste", modelo: "gpt-6.1-sol", texto: "Selecione o cliente para iniciar a consulta dos documentos vinculados a ele.", acaoVisual: "Seleção de cliente", textoAnterior: "Confirme o acesso.", textoSeguinte: "Abra o relatório.", janelaMs: 6_000, duracaoAudioMs: 9_000 }, cliente);
+    const pedido = requisicao as { model: string; input: Array<{ content: string }> };
+    expect(pedido.model).toBe("gpt-6.1-sol");
+    expect(JSON.parse(pedido.input[1]!.content)).toMatchObject({ textoAnterior: "Confirme o acesso.", textoSeguinte: "Abra o relatório.", janelaMs: 6_000 });
+    expect(pedido.input[0]!.content).toContain("nunca corte seu final");
+    expect(texto).toBe("Selecione o cliente para consultar os documentos.");
   });
 });

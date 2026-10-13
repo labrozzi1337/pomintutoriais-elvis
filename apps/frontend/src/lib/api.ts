@@ -5,7 +5,7 @@ const healthSchema = z.object({
     service: z.literal("start-back-api"),
     status: z.enum(["ok", "degraded"]),
     database: z.enum(["connected", "unconfigured", "unavailable"]),
-    redis: z.enum(["connected", "unavailable"]),
+    redis: z.enum(["connected", "unavailable", "not_required"]),
     schema: z.literal("tutoriais"),
     timestamp: z.string().datetime()
   }),

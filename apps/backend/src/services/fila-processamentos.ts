@@ -32,6 +32,7 @@ export function opcoesTrabalhoVideo(processamentoId: string): JobsOptions {
 
 /** Enfileira a validação sem carregar credenciais ou caminhos no Redis. */
 export async function enfileirarValidacaoVideo(env: ServerEnv, processamentoId: string): Promise<string> {
+  if (process.env.VERCEL === "1") return enfileirarWorkflow(processamentoId, "validar-video");
   fila ??= new Queue<TrabalhoProcessamento>(NOME_FILA_PROCESSAMENTOS, {
     connection: conexaoRedis(env.START_BACK_REDIS_URL)
   });
@@ -41,6 +42,7 @@ export async function enfileirarValidacaoVideo(env: ServerEnv, processamentoId: 
 
 /** Enfileira análise visual idempotente sem colocar caminhos ou frames no Redis. */
 export async function enfileirarAnaliseVideo(env: ServerEnv, processamentoId: string): Promise<string> {
+  if (process.env.VERCEL === "1") return enfileirarWorkflow(processamentoId, "analisar-video");
   fila ??= new Queue<TrabalhoProcessamento>(NOME_FILA_PROCESSAMENTOS, {
     connection: conexaoRedis(env.START_BACK_REDIS_URL)
   });
@@ -51,10 +53,18 @@ export async function enfileirarAnaliseVideo(env: ServerEnv, processamentoId: st
 
 /** Enfileira voz/render sem transportar texto, chaves ou caminhos pelo Redis. */
 export async function enfileirarNarracao(env: ServerEnv, processamentoId: string): Promise<string> {
+  if (process.env.VERCEL === "1") return enfileirarWorkflow(processamentoId, "gerar-narracao");
   fila ??= new Queue<TrabalhoProcessamento>(NOME_FILA_PROCESSAMENTOS, { connection: conexaoRedis(env.START_BACK_REDIS_URL) });
   const opcoes = { ...opcoesTrabalhoVideo(processamentoId), jobId: `gerar-narracao-${processamentoId}`, attempts: 1 };
   const trabalho = await fila.add("gerar-narracao", { processamentoId, tipo: "gerar_narracao" }, opcoes);
   return trabalho.id ?? opcoes.jobId;
+}
+
+async function enfileirarWorkflow(processamentoId: string, nome: "validar-video" | "analisar-video" | "gerar-narracao"): Promise<string> {
+  const { start } = await import("workflow/api");
+  const { processarVideoNaVercel } = await import("@/workflows/video");
+  const run = await start(processarVideoNaVercel, [processamentoId, nome]);
+  return run.runId;
 }
 
 /** Converte a URL Redis em opções aceitas pelo BullMQ sem registrar credenciais. */

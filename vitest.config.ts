@@ -3,7 +3,10 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
-    alias: { "@": path.resolve(import.meta.dirname, "apps/backend/src") }
+    alias: {
+      "@/lib/api": path.resolve(import.meta.dirname, "apps/frontend/src/lib/api.ts"),
+      "@": path.resolve(import.meta.dirname, "apps/backend/src")
+    }
   },
   test: {
     include: ["apps/**/*.test.ts"],

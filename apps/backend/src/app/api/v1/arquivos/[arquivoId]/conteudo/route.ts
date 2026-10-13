@@ -9,6 +9,7 @@ import { obterArquivoGeradoInterno } from "@/repositories/estudio-repository";
 import { validarAcesso } from "@/services/acesso-arquivo";
 import { ArmazenamentoLocal } from "@/services/armazenamento-arquivos";
 import { interpretarRange } from "@/services/http-range";
+import { ArmazenamentoB2, b2Configurada } from "@/services/b2";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,10 @@ export async function GET(request: Request, { params }: ContextoRota): Promise<R
     if (!acesso) return respostaErro("AUTH_REQUIRED", "O acesso expirou ou é inválido.", 401);
     const arquivo = await obterArquivoGeradoInterno(createServerSupabaseClient(env.data), arquivoId);
     if (!arquivo) return respostaErro("NOT_FOUND", "Arquivo não encontrado.", 404);
+    if (b2Configurada()) {
+      const url = await new ArmazenamentoB2().url(arquivo.chave_armazenamento, arquivo.mime_type, acesso.modo === "baixar" ? arquivo.chave_armazenamento.split("/").at(-1) : undefined);
+      return new Response(null, { status: 307, headers: { Location: url, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });
+    }
     const caminho = new ArmazenamentoLocal(env.data.START_BACK_STORAGE_ROOT).caminhoAbsoluto(arquivo.chave_armazenamento);
     const tamanho = (await stat(caminho)).size;
     const intervalo = interpretarRange(request.headers.get("range"), tamanho);

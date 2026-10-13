@@ -4,9 +4,11 @@ import { respostaErro, tratarExcecao } from "@/lib/http";
 import { validarUuid } from "@/lib/schemas";
 import { obterArquivoDoVideo, obterProjeto, registrarVideo, vincularJob } from "@/repositories/estudio-repository";
 import { ArmazenamentoLocal } from "@/services/armazenamento-arquivos";
+import { ArmazenamentoB2, b2Configurada } from "@/services/b2";
 import { enfileirarValidacaoVideo } from "@/services/fila-processamentos";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 type ContextoRota = { params: Promise<{ projetoId: string; uploadId: string }> };
 
 /** Finaliza o upload, persiste metadados e agenda a validação real no worker. */
@@ -18,10 +20,11 @@ export async function POST(request: Request, { params }: ContextoRota): Promise<
     const ids = await params;
     const projetoId = validarUuid(ids.projetoId);
     const uploadId = validarUuid(ids.uploadId);
-    const armazenamento = new ArmazenamentoLocal(contexto.env.START_BACK_STORAGE_ROOT);
+    const remoto = b2Configurada();
+    const armazenamento = remoto ? new ArmazenamentoB2() : new ArmazenamentoLocal(contexto.env.START_BACK_STORAGE_ROOT);
     const manifesto = await armazenamento.obterUpload(contexto.auth.usuario.id, uploadId);
     if (!manifesto || manifesto.projetoId !== projetoId) return respostaErro("NOT_FOUND", "Upload não encontrado.", 404);
-    if (manifesto.bytesRecebidos !== manifesto.tamanhoEsperado) return respostaErro("CONFLICT", "O upload ainda não terminou.", 409);
+    if (!remoto && manifesto.bytesRecebidos !== manifesto.tamanhoEsperado) return respostaErro("CONFLICT", "O upload ainda não terminou.", 409);
     let processamento: Awaited<ReturnType<typeof registrarVideo>> | undefined;
     if (manifesto.videoId) {
       const existente = await obterArquivoDoVideo(contexto.auth.cliente, manifesto.videoId);
@@ -31,7 +34,7 @@ export async function POST(request: Request, { params }: ContextoRota): Promise<
         if (!processamento) return respostaErro("CONFLICT", "O vídeo existe, mas sua validação não foi encontrada.", 409);
       }
     }
-    const videoId = manifesto.videoId ?? crypto.randomUUID();
+    const videoId = manifesto.videoId ?? (remoto ? manifesto.id : crypto.randomUUID());
     if (!processamento) {
       const promovido = await armazenamento.promoverUpload(manifesto, videoId);
       processamento = await registrarVideo(contexto.auth.cliente, {
@@ -40,13 +43,16 @@ export async function POST(request: Request, { params }: ContextoRota): Promise<
       });
     }
     try {
-      const jobId = await enfileirarValidacaoVideo(contexto.env, processamento.id);
-      await vincularJob(contexto.auth.cliente, processamento.id, jobId);
+      if (!processamento.job_id && processamento.status !== "concluido") {
+        const jobId = await enfileirarValidacaoVideo(contexto.env, processamento.id);
+        await vincularJob(contexto.auth.cliente, processamento.id, jobId);
+      }
     } catch {
       return respostaErro("SERVICE_UNAVAILABLE", "O envio terminou, mas o processamento está indisponível. Tente novamente.", 503);
     }
     return NextResponse.json({ data: { videoId, processamentoId: processamento.id, status: processamento.status }, meta: { requestId } }, { status: 202 });
   } catch (error) {
+    if (error instanceof Error && error.message === "UPLOAD_PART_SIZE_MISMATCH") return respostaErro("UPLOAD_INVALID", "As partes enviadas não correspondem ao tamanho do vídeo.", 400);
     if (error instanceof Error && error.message === "UPLOAD_NOT_MP4") return respostaErro("UPLOAD_INVALID", "O conteúdo enviado não é um MP4 válido.", 415);
     return tratarExcecao(error, requestId);
   }

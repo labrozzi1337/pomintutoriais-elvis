@@ -9,6 +9,7 @@ import { obterArquivoInterno } from "@/repositories/estudio-repository";
 import { validarAcesso } from "@/services/acesso-arquivo";
 import { ArmazenamentoLocal } from "@/services/armazenamento-arquivos";
 import { interpretarRange } from "@/services/http-range";
+import { ArmazenamentoB2, b2Configurada } from "@/services/b2";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,10 @@ export async function GET(request: Request, { params }: ContextoRota): Promise<R
     if (!acesso) return respostaErro("AUTH_REQUIRED", "O acesso expirou ou é inválido.", 401);
     const recurso = await obterArquivoInterno(createServerSupabaseClient(env.data), videoId);
     if (!recurso || recurso.video.status !== "pronto") return respostaErro("NOT_FOUND", "Vídeo não encontrado.", 404);
+    if (b2Configurada()) {
+      const url = await new ArmazenamentoB2().url(recurso.arquivo.chave_armazenamento, "video/mp4", acesso.modo === "baixar" ? recurso.video.nome_original : undefined);
+      return new Response(null, { status: 307, headers: { Location: url, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });
+    }
     const caminho = new ArmazenamentoLocal(env.data.START_BACK_STORAGE_ROOT).caminhoAbsoluto(recurso.arquivo.chave_armazenamento);
     const tamanho = (await stat(caminho)).size;
     const intervalo = interpretarRange(request.headers.get("range"), tamanho);

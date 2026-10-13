@@ -8,6 +8,7 @@ import { StudioPage } from "@/pages/StudioPage";
 import { OrganizationPage } from "@/pages/OrganizationPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { WikiPage } from "@/pages/WikiPage";
+import { UsersPage } from "@/pages/UsersPage";
 
 export function App() {
   return (
@@ -20,6 +21,7 @@ export function App() {
           <Route path="criar" element={<StudioPage modo="criar" />} />
           <Route path="organizacao" element={<OrganizationPage />} />
           <Route path="wiki" element={<WikiPage />} />
+          <Route path="usuarios" element={<UsersPage />} />
           <Route path="configuracoes" element={<SettingsPage />} />
         </Route>
       </Route>

@@ -1,47 +1,15 @@
-# Recordly e integração Windows
+# Recordly e abertura pelo navegador
 
-## O que foi comprovado em 09/10/2026
+O portal faz uma única tentativa, iniciada pelo clique do usuário, de abrir `estudiotutoriais://abrir`. A página permanece no mesmo passo. Se o navegador perder o foco porque o aplicativo respondeu, o download não é exibido; se não houver resposta em 2,5 segundos, são mostrados os downloads oficiais do Recordly 1.4.0 para Windows, macOS e Linux.
 
-Instalação local: Recordly **1.4.0**, executável em `%LOCALAPPDATA%\Programs\Recordly\Recordly.exe`. Auditoria da tag oficial `v1.4.0`, commit `4b20a1a76ed3564bd70aee7a0cc7167ea2e5e9c1`.
+No Windows, o fallback informa o caminho padrão `%LOCALAPPDATA%\Programs\Recordly\Recordly.exe` e orienta quem já instalou a abrir o Recordly pelo menu Iniciar, gravar, exportar em MP4 e voltar ao portal para enviar o arquivo. A opção **Tentar abrir Recordly novamente** repete somente a solicitação de protocolo.
 
-| Evidência | Resultado |
-| --- | --- |
-| `electron/main.ts`, `electron-builder.json5` e registros de protocolo locais | Não foi encontrado protocolo nativo documentado para iniciar gravação. Não usamos `recordly://gravar`. |
-| `src/components/video-editor/ExtensionManager.tsx` | A versão estável informa que extensões não estão disponíveis. |
-| `EXTENSIONS.md` versus código real | A documentação cita `export:complete`, mas a busca no código desta tag não encontrou sua implementação. Não é base suficiente para upload automático. |
-| `src/components/video-editor/export/exportPersistence.ts`, `electron/preload.ts`, `electron/ipc/register/export.ts` | Exportação usa gravação/finalização local de arquivo. O MVP exige exportar MP4 e importar no portal. |
+Não distribuímos launcher, ZIP, script PowerShell ou código do Recordly. O MP4 continua sendo exportado no Recordly e importado manualmente no portal.
 
-Fontes oficiais: [releases](https://github.com/webadderallorg/Recordly/releases), [gerenciador de extensões](https://github.com/webadderallorg/Recordly/blob/v1.4.0/src/components/video-editor/ExtensionManager.tsx), [persistência da exportação](https://github.com/webadderallorg/Recordly/blob/v1.4.0/src/components/video-editor/export/exportPersistence.ts), [licença](https://github.com/webadderallorg/Recordly/blob/v1.4.0/LICENSE.md). Verifique novamente ao atualizar o Recordly.
+## Limitação da versão oficial
 
-O Recordly é AGPLv3; nosso pacote de integração não contém código ou binários do Recordly. Uma extensão/fork requer revisão específica de licença e marca, além de comprovação técnica. Não redistribuímos o Recordly.
+Um site não pode consultar executáveis instalados nem registrar uma associação de protocolo no sistema operacional. Essa associação precisa ser criada pelo instalador do aplicativo. A configuração oficial do Recordly 1.4.0 não declara um protocolo de URL; portanto, instalar somente essa versão não garante que o Windows saiba abrir `estudiotutoriais://`.
 
-## Instalar e abrir
+O diálogo **Abrir Recordly?** prova que existe uma associação na máquina, não que o navegador tenha detectado o aplicativo. Na máquina em que uma associação antiga já existe, o diálogo continuará aparecendo. Em uma máquina nova, o comportamento solicitado só pode ser garantido quando o próprio instalador oficial do Recordly registrar um protocolo e o portal passar a usar esse esquema.
 
-1. No Windows, entre em `http://localhost:8081` e clique em **Abrir Recordly**.
-2. Confirme a pergunta do navegador para abrir o aplicativo externo.
-3. Se a abertura não responder, o portal mostra **Baixar Recordly**.
-4. Grave/edite no Recordly, exporte MP4 e importe no portal.
-
-Não há código, conta, dispositivo ou pareamento. A migration `20261009210000_launcher_windows.sql` pertence ao fluxo anterior e não é necessária para abrir o Recordly.
-
-## Comportamento verdadeiro
-
-O navegador solicita a abertura de `estudiotutoriais://abrir`, e o registro do Windows aponta diretamente para o `Recordly.exe` já instalado. Não existe outro executável entre o botão e o Recordly. Como o navegador não fornece uma API para consultar programas instalados, o portal considera a perda de foco/visibilidade como abertura bem-sucedida e mostra o download somente quando a tentativa não responde.
-
-Abrir o Recordly não inicia a captura nem escolhe o destino da exportação. A versão oficial auditada não oferece protocolo ou callback suportado para salvar automaticamente no portal; o MP4 deve ser exportado e importado.
-
-## Segurança e remoção
-
-O botão usa somente `estudiotutoriais://abrir`; o comando registrado não repassa query, paths, argumentos ou scripts ao Recordly. A confirmação para abrir o aplicativo externo pertence ao navegador/Windows. Nenhuma chave ou credencial do portal é usada.
-
-Há consentimento explícito antes de iniciar o `.exe`, nenhuma elevação e nenhuma instalação silenciosa. A verificação de caminho/metadados não substitui Authenticode nem protege um Windows já comprometido. Assinatura digital é pendência para distribuição externa.
-
-Para remover, execute `powershell -NoProfile -File .\Remover.ps1` na pasta extraída. O script remove somente o protocolo e resíduos do launcher antigo; preserva Recordly e projetos.
-
-Para recompilar: `powershell -NoProfile -File .\launcher-windows\Compilar.ps1`. Saída: `artifacts/launcher/EstudioTutoriais-Launcher.zip`; uma cópia vai para o download do frontend. Recompile antes de gerar a imagem Docker em uma máquina limpa.
-
-SHA-256 do pacote gerado nesta entrega: `E73C083FB7BE6C4A3060AB3A0D8D4F0B2B525D1908A6ACEBBC7F62757CF811D8`. Uma recompilação pode mudar o hash; o administrador deve divulgar o hash do pacote que realmente distribuir.
-
-## Aceite pendente
-
-Geração do pacote, detecção do Recordly e registro direto do protocolo passaram nesta máquina. **A abertura visível pelo clique, cancelamento da confirmação do navegador, cenário sem Recordly e instalação em outra máquina ainda exigem teste interativo**.
+Fontes oficiais verificadas: [release 1.4.0](https://github.com/webadderallorg/Recordly/releases/tag/v1.4.0), [configuração do instalador](https://github.com/webadderallorg/Recordly/blob/v1.4.0/electron-builder.json5) e [documentação de protocolos do Electron](https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app).

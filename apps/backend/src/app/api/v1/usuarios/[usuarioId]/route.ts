@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from "@/integrations/supabase/server";
 import { obterContextoApi } from "@/lib/api-context";
 import { lerJson, respostaErro, tratarExcecao } from "@/lib/http";
 import { validarUuid } from "@/lib/schemas";
-import { alterarTipoUsuario, excluirUsuario } from "@/services/administracao-usuarios";
+import { alterarStatusUsuario, alterarTipoUsuario, excluirUsuario } from "@/services/administracao-usuarios";
 
 export const runtime = "nodejs";
 type ContextoRota = { params: Promise<{ usuarioId: string }> };
@@ -15,11 +15,19 @@ export async function PATCH(request: Request, { params }: ContextoRota): Promise
     const contexto = await obterContextoApi(request);
     if (!contexto.ok) return contexto.response;
     if (contexto.auth.acesso.tipo !== "admin") return respostaErro("FORBIDDEN", "Apenas administradores podem alterar permissões.", 403);
-    const entrada = await lerJson(request, z.object({ tipo: z.enum(["comum", "admin"]) }).strict());
-    const usuario = await alterarTipoUsuario(createServerSupabaseClient(contexto.env), validarUuid((await params).usuarioId), entrada.tipo, contexto.auth.usuario.id);
+    const entrada = await lerJson(request, z.union([
+      z.object({ tipo: z.enum(["comum", "admin"]) }).strict(),
+      z.object({ status: z.enum(["ativo", "bloqueado"]) }).strict()
+    ]));
+    const cliente = createServerSupabaseClient(contexto.env);
+    const usuarioId = validarUuid((await params).usuarioId);
+    const usuario = "tipo" in entrada
+      ? await alterarTipoUsuario(cliente, usuarioId, entrada.tipo, contexto.auth.usuario.id)
+      : await alterarStatusUsuario(cliente, usuarioId, entrada.status, contexto.auth.usuario.id);
     return usuario ? NextResponse.json({ data: usuario, meta: { requestId } }) : respostaErro("NOT_FOUND", "Usuário não encontrado.", 404);
   } catch (error) {
     if (error instanceof Error && error.message === "USER_SELF_DEMOTE") return respostaErro("CONFLICT", "Você não pode remover a própria permissão de administrador.", 409);
+    if (error instanceof Error && error.message === "USER_SELF_BLOCK") return respostaErro("CONFLICT", "Você não pode bloquear a própria conta.", 409);
     return tratarExcecao(error, requestId);
   }
 }

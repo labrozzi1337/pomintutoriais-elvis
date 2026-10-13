@@ -6,7 +6,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/node_modules/**", "**/.next/**", "**/dist/**", "**/coverage/**"] },
+  { ignores: ["**/node_modules/**", "**/.next/**", "**/dist/**", "**/coverage/**", "apps/backend/src/app/.well-known/workflow/**"] },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
@@ -30,7 +30,13 @@ export default tseslint.config(
     }
   },
   {
-    files: ["**/*.config.{js,mjs,ts}"],
+    files: ["apps/**/*.test.ts"],
+    languageOptions: {
+      parserOptions: { projectService: false, project: ["apps/backend/tsconfig.tests.json", "apps/frontend/tsconfig.tests.json"] }
+    }
+  },
+  {
+    files: ["**/*.config.{js,mjs,ts}", "apps/backend/scripts/*.mjs"],
     extends: [tseslint.configs.disableTypeChecked]
   }
 );
